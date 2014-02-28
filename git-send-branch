@@ -1,0 +1,124 @@
+#!/bin/bash
+
+function die() {
+    echo "ERROR: $*" >&2
+    exit 1
+}
+
+generate-signature() {
+    local git_version=$(git --version | sed 's/^git version //')
+    local send_branch_path=$(readlink -f ${BASH_SOURCE[0]})
+    local send_branch_version=$(git -C $(dirname ${send_branch_path}) describe --tags 2> /dev/null)
+    # compatibility mode as -C is only available on git 1.9 onwards
+    if [ -z "$send_branch_version" ]; then
+        send_branch_version=$( (cd $(dirname ${send_branch_path}) && git describe --tags ) 2> /dev/null)
+    fi
+    if [ ! -z "$send_branch_version" ]; then
+        echo "$git_version (send-branch: $send_branch_version)"
+    else
+        echo "$git_version (send-branch)"
+    fi
+}
+
+usage() {
+    echo "
+Usage: $(basename $0) [OPTIONS] [BRANCH]
+Prepare and send a patch series via email based on a local branch.
+
+OPTIONS
+    -b             omits branch name from subject
+    -c             force cover letter ON (default behavior is to add
+                   cover letter only if there is more than 1 patch)
+    -f <args>      extra arguments passed to git format-patch
+    -h             displays this help message
+    -s <args>      extra arguments passed to git send-email
+    -v <version>   appends version to the subject prefix
+    -l <branch>    use <branch> as the base instead of master
+
+CONFIGURATION
+
+    Add the project name to the generated subjects by using
+
+    $ git config format.subjectprefix 'PATCH projectname' # quotes matter!
+" 1>&2;
+    exit 1;
+}
+
+OPT_FORMAT_EXTRA=
+OPT_SENDEMAIL_EXTRA=
+OPT_VERSION=
+OPT_FORCE_COVERLETTER=0
+OPT_BRANCH=1
+OPT_BASE="master"
+
+args=0
+while getopts "f:s:v:l:cbh" o; do
+    case "${o}" in
+        f) OPT_FORMAT_EXTRA=${OPTARG}; args=$[$args + 2] ;;
+        s) OPT_SENDEMAIL_EXTRA=${OPTARG}; args=$[$args + 2] ;;
+        v) OPT_VERSION=" v${OPTARG}"; args=$[$args + 2] ;;
+        l) OPT_BASE=$OPTARG; args=$[$args + 2] ;;
+        c) OPT_FORCE_COVERLETTER=1; args=$[$args + 1] ;;
+        b) OPT_BRANCH=; args=$[$args + 1] ;;
+        h) usage ;;
+        \?) usage ;;
+    esac
+done
+shift $args
+
+GIT_DIR=$(git rev-parse --git-dir)
+if [ -z "$GIT_DIR" ]; then
+    die "$PWD is not inside a git repository."
+fi
+
+TIP=${1:-HEAD}
+BRANCH=$(git rev-parse --abbrev-ref --symbolic $TIP)
+if [ -z "$BRANCH" ]; then
+    die "No branch matches '$TIP'"
+fi
+
+REMOTE=$(git config branch.${BRANCH}.remote)
+if [ -z "$REMOTE" ]; then
+    die "No remote configured for '$BRANCH'. Push your branch with --set-upstream"
+fi
+
+REMOTE_BRANCH=$(git rev-parse --abbrev-ref --symbolic $BRANCH@{u})
+
+if [ "$(git rev-parse $BRANCH)" != "$(git rev-parse $REMOTE_BRANCH)" ]; then
+    die "'$BRANCH' and '$REMOTE_BRANCH' do not point to the same commit"
+fi
+
+if [ $OPT_BRANCH ]; then
+    REMOTE_BRANCH=${REMOTE_BRANCH#*/}
+    OPT_BRANCH=" $(basename $REMOTE_BRANCH)"
+fi
+
+PATCHES=$(git rev-list $OPT_BASE..$TIP | wc -l)
+COVERLETTER=
+ANNOTATE=
+if [ $OPT_FORCE_COVERLETTER -eq 1 ] || [ $PATCHES -gt 1 ]; then
+    COVERLETTER="--cover-letter"
+elif [ $PATCHES -eq 1 ]; then
+    ANNOTATE="--annotate"
+fi
+
+SUBJECT_PREFIX=$(git config format.subjectprefix)
+if [ -z "${SUBJECT_PREFIX}" ]; then
+    SUBJECT_PREFIX="PATCH "$(basename $(git rev-parse --show-toplevel))
+fi
+PREFIX="${SUBJECT_PREFIX}${OPT_VERSION}${OPT_BRANCH}"
+
+PATCH_DIR=$GIT_DIR/.send_branch
+mkdir -p $PATCH_DIR && rm -r $PATCH_DIR/*
+
+signature="$(generate-signature)
+remote: $(git config --get remote.$REMOTE.url) $REMOTE_BRANCH"
+git format-patch --no-binary $COVERLETTER --subject-prefix "$PREFIX" \
+    -o $PATCH_DIR $OPT_FORMAT_EXTRA --signature="$signature" $OPT_BASE..$TIP
+
+echo "-------------------------------------------"
+
+[ -z "$COVERLETTER" ] || \
+    eval ${EDITOR:-vi} $PATCH_DIR/0000-cover-letter.patch
+
+git send-email --confirm=always $ANNOTATE $OPT_SENDEMAIL_EXTRA $PATCH_DIR/*.patch
