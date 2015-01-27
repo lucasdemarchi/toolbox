@@ -1,0 +1,86 @@
+#!/bin/bash
+
+SCRIPT_DIR=$(dirname $(realpath ${BASH_SOURCE[0]}))
+
+function add_config() {
+    read -r remote xxx <<<$(git remote)
+    local uri=$(git ls-remote --get-url $remote)
+    uri_parser $uri
+
+    # only for gitolite running on remote server
+    user=$(ssh $uri_address echo-user)
+
+    branchprefix=tip/$user
+
+    git config --remove-section pushtip
+    git config --add pushtip.remote $remote
+    git config --add pushtip.branchprefix $branchprefix
+}
+
+function get_config() {
+    remote=$(git config --get pushtip.remote)
+    branchprefix=$(git config --get pushtip.branchprefix)
+
+    if [ -z "$remote" ] || [ -z "$branchprefix" ]; then
+        echo "Config not found, trying to get it automatically"
+        add_config
+    fi
+}
+
+function die() {
+    echo "ERROR: $1"
+    exit 1
+}
+
+usage() {
+    echo "
+Usage: $(basename $0) [OPTIONS] [BRANCH]
+Send a branch for review in tip/ or wip/ namespaces.
+
+OPTIONS
+    -w             consider this a WIP. The branch prefix will be wip/
+    -h             display this help message
+
+All the unknown options are passed directly to the git-push command.
+" 1>&2;
+    exit 1;
+}
+
+. $SCRIPT_DIR/uri_parser.sh
+
+get_config
+if [ -z "$remote" ] || [ -z "$branchprefix" ]; then
+    die "Could not automatically get configuration. Set it with
+         git config pushtip.remote remote-name
+         git config pushtip.branchprefix tip/<your-user-on-remote>
+    "
+fi
+
+OPT_WIP=0
+pushargs=""
+args=
+for arg in "$@"; do
+    case "$arg" in
+        -w) OPT_WIP=1
+            ;;
+        -h) usage
+            ;;
+        # unknown options go to arguments to git-push
+        -*) pushargs="$pushargs $arg"
+            ;;
+        *) args="$args $arg"
+            ;;
+    esac
+done
+IFS=' ' read -a args <<< "$args"
+
+TIP=${args[0]:-HEAD}
+BRANCH=$(basename $(git rev-parse --abbrev-ref --symbolic $TIP))
+if [ -z "$BRANCH" ]; then
+    die "No branch matches '$TIP'"
+fi
+
+[ $OPT_WIP -eq 1 ] && branchprefix=${branchprefix/tip/wip}
+echo " Using $remote/$branchprefix as namespace"
+
+git push --set-upstream $pushargs $remote $TIP:$branchprefix/$BRANCH
