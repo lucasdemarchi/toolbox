@@ -1,0 +1,103 @@
+#!/bin/bash
+
+ANSI_HIGHLIGHT_RED_ON="\x1B[1;31m"
+ANSI_HIGHLIGHT_OFF="\x1B[0m"
+
+OPT_CC="make -j4 -C ../../"
+OPT_ENV=""
+OPT_EXIT_ON_FAIL=0
+
+usage() {
+echo "
+Usage: $(basename $0) [OPTIONS] <BASE-BRANCH>
+Compile all commits since <BASE-BRANCH>
+Prepare and send a patch series via email based on a local branch.
+
+OPTIONS
+    -c <command>   use an alternative command to build. By default
+                   '$OPT_CC' is used
+    -E <environment> source an environment before executing any command.
+    -x             exit on the first failed build instead of keep trying
+                   later commits
+    -h             display this help message
+" 1>&2;
+exit 1;
+}
+
+args=0
+while getopts "E:c:xh\?" o; do
+    case "${o}" in
+        c) OPT_CC=${OPTARG}; args=$[$args + 2] ;;
+        E) OPT_ENV=${OPTARG}; args=$[$args + 2] ;;
+        x) OPT_EXIT_ON_FAIL=1; args=$[$args + 1] ;;
+        h) usage ;;
+        \?) usage ;;
+    esac
+done
+shift $args
+
+rev=$(git rev-parse --symbolic-full-name --abbrev-ref HEAD)
+cmd="$2"
+build_bork=""
+cmd_bork=""
+no_bork=""
+ret=0
+
+function list_bork() {
+    list="$1"
+    msg="$2"
+
+    [ -n "$list" ] && {
+        echo "The following commits $msg:"
+        for i in $list
+        do
+            git log --oneline -1 $i
+        done
+    }
+}
+
+report() {
+    echo -e "\n\n"
+    echo "============ rebase-compile finished ============"
+    [ $ret -ne 0 ] && [ $OPT_EXIT_ON_FAIL -eq 1 ] && \
+        echo "Stopping after failed build or signal"
+
+    list_bork "$no_bork" "succeeded";
+    list_bork "$build_bork" "failed to build";
+    list_bork "$cmd_bork" "failed to run \"$cmd\""
+    git checkout $rev
+    echo "================================================="
+    trap "" SIGINT SIGTERM EXIT
+    exit $ret
+}
+
+trap "ret=1; report;" SIGINT SIGTERM
+trap "report;" EXIT
+
+[ ! -z "$OPT_ENV" ] && . "$OPT_ENV"
+
+for i in $(git rev-list --reverse ${1}..HEAD)
+do
+    git checkout $i
+    $OPT_CC || {
+        echo -e "$ANSI_HIGHLIGHT_RED_ON commit $i broke build $ANSI_HIGHLIGHT_OFF"
+        build_bork="$build_bork $i"
+        [ $OPT_EXIT_ON_FAIL -eq 1 ] && break
+        continue
+    }
+
+    [ -n "$2" ] && {
+        $2 || {
+            echo -e "$ANSI_HIGHLIGHT_RED_ON commit $i broke \"$cmd\" $ANSI_HIGHLIGHT_OFF"
+            cmd_bork="$cmd_bork $i"
+            [ $OPT_EXIT_ON_FAIL -eq 1 ] && break
+            continue
+        }
+    }
+
+    no_bork="$no_bork $i"
+done
+
+if [ ! -z "$build_bork" -o ! -z "$cmd_bork" ]; then
+    ret=1
+fi
