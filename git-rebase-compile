@@ -3,7 +3,7 @@
 ANSI_HIGHLIGHT_RED_ON="\x1B[1;31m"
 ANSI_HIGHLIGHT_OFF="\x1B[0m"
 
-OPT_CC="make -j4 -C ../../"
+OPT_CC="make -j4"
 OPT_ENV=""
 OPT_EXIT_ON_FAIL=0
 
