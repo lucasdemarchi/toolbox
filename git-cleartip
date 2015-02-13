@@ -5,11 +5,12 @@ SCRIPT_DIR=$(dirname $(realpath ${BASH_SOURCE[0]}))
 usage() {
     echo "
 Usage: $(basename $0) [OPTIONS] [BRANCH]
-Clear tip (or wip) in the remote
+Clear tip (or wip) in the remote for your branch namespace
 
 OPTIONS
-    -a             clear all tips and wips
+    -a             clear all tips and wips of your branch namespace
     -h             display this help message
+    -n             dry-run
 
 All the unknown options are passed directly to the git-push command.
 " 1>&2;
@@ -29,6 +30,7 @@ for arg in "$@"; do
         -h) usage
             ;;
         # unknown options go to arguments to git-push
+        # do nothing for '-n' it will be pased direclty to git-push as well
         -*) pushargs="$pushargs $arg"
             ;;
         *) args="$args $arg"
