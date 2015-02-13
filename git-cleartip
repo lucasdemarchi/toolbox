@@ -5,10 +5,10 @@ SCRIPT_DIR=$(dirname $(realpath ${BASH_SOURCE[0]}))
 usage() {
     echo "
 Usage: $(basename $0) [OPTIONS] [BRANCH]
-Send a branch for review in tip/ or wip/ namespaces.
+Clear tip (or wip) in the remote
 
 OPTIONS
-    -w             consider this a WIP. The branch prefix will be wip/
+    -a             clear all tips and wips
     -h             display this help message
 
 All the unknown options are passed directly to the git-push command.
@@ -19,12 +19,12 @@ All the unknown options are passed directly to the git-push command.
 . $SCRIPT_DIR/uri_parser.sh
 . $SCRIPT_DIR/tip_config.sh
 
-OPT_WIP=0
+OPT_ALL=0
 pushargs=""
 args=
 for arg in "$@"; do
     case "$arg" in
-        -w) OPT_WIP=1
+        -a) OPT_ALL=1
             ;;
         -h) usage
             ;;
@@ -37,13 +37,20 @@ for arg in "$@"; do
 done
 IFS=' ' read -a args <<< "$args"
 
-TIP=${args[0]:-HEAD}
-BRANCH=$(basename $(git rev-parse --abbrev-ref --symbolic $TIP))
-if [ -z "$BRANCH" ]; then
-    die "No branch matches '$TIP'"
+branchargs=""
+
+BRANCH="*"
+if [ $OPT_ALL -eq 0 ]; then
+   TIP=${args[0]:-HEAD}
+   BRANCH=$(basename $(git rev-parse --abbrev-ref --symbolic $TIP))
+   if [ -z "$BRANCH" ]; then
+       die "No branch matches '$TIP'"
+   fi
 fi
 
-[ $OPT_WIP -eq 1 ] && branchprefix=${branchprefix/tip/wip}
-echo " Using $remote/$branchprefix as namespace"
+branchprefix=${branchprefix/tip/[tw]ip}
+branchargs=$(git branch -r --list "$remote/$branchprefix/$BRANCH" | sed "s#$remote/#:#")
 
-git push --set-upstream $pushargs $remote $TIP:$branchprefix/$BRANCH
+[ -z "$branchargs" ] && exit 0
+
+git push $pushargs $remote $branchargs
