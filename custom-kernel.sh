@@ -1,0 +1,45 @@
+#!/bin/bash
+
+set -e
+
+trap '
+    ret=$?;
+    set +e;
+    if [[ $ROOTFS ]]; then
+        rm -rf $ROOTFS
+    fi
+    if [[ $ret -ne 0 ]]; then
+        echo FAILED TO INSTALL CUSTOM KERNEL >&2
+    fi
+    exit $ret;
+    ' EXIT
+
+# clean up after ourselves no matter how we die.
+trap 'exit 1;' SIGINT
+
+KVER=$(make kernelrelease)
+ROOTFS=$(mktemp -d --tmpdir custom-kernel.XXXXXXXX)
+
+# workaround for make modules_install installing in /lib, which will be created
+# as a dir if the directory didn't exit
+mkdir -p $ROOTFS/usr/lib/modules
+ln -s usr/lib $ROOTFS/lib
+
+make modules_install INSTALL_MOD_PATH=$ROOTFS
+
+# on target this will mean nothing
+rm $ROOTFS/usr/lib/modules/$KVER/build
+rm $ROOTFS/usr/lib/modules/$KVER/source
+
+# copy the kernel image over to /usr/lib/custom-kernel - only one kernel will
+# be kept there... user is supposed to call kernel-install on target (which
+# copies this kernel to /boot) before installing another kernel
+mkdir -p $ROOTFS/usr/lib/custom-kernel/
+cp arch/x86/boot/bzImage $ROOTFS/usr/lib/custom-kernel/vmlinuz
+echo $KVER > $ROOTFS/usr/lib/custom-kernel/VERSION
+
+# target doesn't need the workaround, so now remove it
+rm $ROOTFS/lib
+
+D=$PWD
+( cd $ROOTFS && tar -cf $D/linux-${KVER}.tar * )
