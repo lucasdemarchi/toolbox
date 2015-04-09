@@ -221,6 +221,8 @@ systemctl --root=$ROOTFS enable sshd.socket
 
 # networkd
 systemctl --root=$ROOTFS enable systemd-networkd.service
+systemctl --root=$ROOTFS enable systemd-resolved.service
+ln -sf /run/systemd/resolve/resolv.conf $ROOTFS/etc/resolv.conf
 # enable DHCP for all Ethernet interfaces
 mkdir -p $ROOTFS/usr/lib/systemd/network
 cat > $ROOTFS/usr/lib/systemd/network/ether.network <<EOF
