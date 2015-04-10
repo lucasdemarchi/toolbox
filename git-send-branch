@@ -40,6 +40,15 @@ CONFIGURATION
     Add the project name to the generated subjects by using
 
     $ git config format.subjectprefix 'PATCH projectname' # quotes matter!
+
+    Configure the \"to:\" field of the emails:
+
+    $ git config sendemail.to <mailing-list>
+
+    If the project is not on top of master branch, configure the default
+    base branch. It can be overridden by '-l' option:
+
+    $ git config sendbranch.base <branch>
 " 1>&2;
     exit 1;
 }
