@@ -42,4 +42,4 @@ echo $KVER > $ROOTFS/usr/lib/custom-kernel/VERSION
 rm $ROOTFS/lib
 
 D=$PWD
-( cd $ROOTFS && tar -cf $D/linux-${KVER}.tar * )
+( cd $ROOTFS && tar -cJf $D/linux-${KVER}.tar.xz * )
