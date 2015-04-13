@@ -43,3 +43,5 @@ rm $ROOTFS/lib
 
 D=$PWD
 ( cd $ROOTFS && tar -cJf $D/linux-${KVER}.tar.xz * )
+
+xz --stdout .config > linux-${KVER}-config.xz
