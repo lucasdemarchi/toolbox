@@ -148,7 +148,11 @@ pacstrap -c $ROOTFS \
     mkinitcpio      \
     bash-completion \
     gummiboot       \
-    openssh
+    openssh         \
+    valgrind        \
+    strace          \
+    i2c-tools
+
 
 # mount kernel filesystems and /boot again
 mount --bind /proc $ROOTFS/proc
