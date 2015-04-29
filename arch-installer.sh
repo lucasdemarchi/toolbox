@@ -101,7 +101,12 @@ echo "t
 $ROOT_UUID
 w
 y
-q" | gdisk /dev/$ROOT ||:
+q" | gdisk /dev/$ROOT
+
+if test ${PIPESTATUS[1]} -ne 0; then
+    echo "error paritioning disk" >&2
+    exit 1
+fi
 
 SYSTEM_PART=/dev/${ROOT}2
 [[ -b /dev/${ROOT}p2 ]] && SYSTEM_PART=/dev/${ROOT}p2
