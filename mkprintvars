@@ -1,0 +1,24 @@
+#!/bin/bash
+
+printvars=$(dirname $(realpath ${BASH_SOURCE[0]}))/printvars.mk
+
+filename=""
+if [ -f GNUmakefile ] ; then
+    filename="GNUmakefile"
+elif [ -f makefile ] ; then
+    filename="makefile"
+elif [ -f Makefile ] ; then
+    filename="Makefile"
+fi
+
+if [ -z "$filename" ]; then
+    echo "No makefile found" 1>&2
+    exit 1
+fi
+
+vars=""
+for n in $@ ; do
+    vars="$vars print-$n"
+done
+
+make -f $filename -f $printvars $vars
