@@ -29,10 +29,48 @@
 
 set -e
 
-if [[ -z "$1" ]]; then
-    echo "Usage: $0 <disk or image file to re-format> <custom-kernel-tarball>" >&2
+usage() {
+    echo "
+Usage: $(basename $0) [OPTIONS] <disk or image file to re-format>
+
+OPTIONS
+    -x             comma-separated list of hooks to run as last step,
+                   before unmounting directories. The hook can get the
+                   rootfs location by reading the ROOTFS environment
+                   variable. Each item can be a file or directory. In
+                   case of directory it will be executed by sorting
+                   the files alphabetically
+" 1>&$1;
+}
+
+execute_hook() {
+    export ROOTFS
+    for x in "$@"; do
+        if [ ! -f $x ] || [ ! -x $x ]; then
+            echo "Ignoring non-executable hook: $x" >&2
+            continue
+        fi
+        $x
+    done
+}
+
+OPT_HOOKS=
+
+args=0
+while getopts "x:h" o; do
+    case "${o}" in
+        x) OPT_HOOKS=${OPTARG}; args=$[$args + 2] ;;
+        h) usage 1; exit 0;;
+        \?) usage 2; exit 1;;
+    esac
+done
+shift $args
+
+if [ -z "$1" ]; then
+    usage 2
     exit 1
 fi
+echo $1
 
 trap '
     ret=$?;
@@ -161,8 +199,6 @@ pacstrap -c $ROOTFS \
     bash-completion \
     gummiboot       \
     openssh         \
-    valgrind        \
-    strace          \
     i2c-tools
 
 
@@ -246,6 +282,18 @@ Name=en*
 [Network]
 DHCP=yes
 EOF
+
+if [ -n "$OPT_HOOKS" ]; then
+    IFS=, read -ra hooks <<<$OPT_HOOKS
+
+    for f in ${hooks[@]}; do
+        if [ -d $f ]; then
+            execute_hook $f/*
+        elif [ -f $f ]; then
+            execute_hook $f
+        fi
+    done
+fi
 
 sync
 printf "\n### finished\n"
