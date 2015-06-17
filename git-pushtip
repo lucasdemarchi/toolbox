@@ -9,6 +9,9 @@ Send a branch for review in tip/ or wip/ namespaces.
 
 OPTIONS
     -w             consider this a WIP. The branch prefix will be wip/
+    -v [<version>] add the suffix \"-v<version>\" to indicate a different
+                   branch version. To stop using version suffix, pass this
+                   option without argument.
     -h             display this help message
 
 All the unknown options are passed directly to the git-push command.
@@ -22,9 +25,16 @@ All the unknown options are passed directly to the git-push command.
 OPT_WIP=0
 pushargs=""
 args=
-for arg in "$@"; do
+version=
+has_version_arg=false
+while [ -n "$1" ]; do
+    arg=$1
     case "$arg" in
         -w) OPT_WIP=1
+            ;;
+        -v) shift
+            version=$1
+            has_version_arg=true
             ;;
         -h) usage
             ;;
@@ -34,6 +44,7 @@ for arg in "$@"; do
         *) args="$args $arg"
             ;;
     esac
+    shift
 done
 IFS=' ' read -a args <<< "$args"
 
@@ -46,4 +57,22 @@ fi
 [ $OPT_WIP -eq 1 ] && branchprefix=${branchprefix/tip/wip}
 echo " Using $remote/$branchprefix as namespace"
 
-git push --set-upstream $pushargs $remote $TIP:$branchprefix/$BRANCH
+oldversion=$(git config --get pushtip.branch.$BRANCH.version 2>/dev/null)
+if [ -n "$version" ]; then
+    [ "$version" != "$oldversion" ] && git config \
+                pushtip.branch.$BRANCH.version $version
+elif $has_version_arg; then
+    echo " Not using version suffix anymore"
+    git config --unset-all pushtip.branch.$BRANCH.version
+else
+    version=$oldversion
+fi
+
+if [ -n "$version" ]; then
+    branchsuffix=-v$version
+    echo " Pushing version $version"
+fi
+
+remote_branch=$branchprefix/$BRANCH$branchsuffix
+
+git push --set-upstream $pushargs $remote $TIP:$remote_branch
