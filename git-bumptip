@@ -1,0 +1,76 @@
+#!/usr/bin/env python
+
+import getopt
+import os
+import re
+import subprocess
+import sys
+
+def usage(code):
+	print("""Usage: %s [OPTIONS]
+Checks out the next version available of a given branch
+
+OPTIONS
+    -h             display this help message
+    -n             dry-run
+
+Also consider used version numbers that are not in local branches
+but only in a remote branch. It refuses to bump versions of the
+'master' branch since this is usually a mistake.""" % os.path.basename(sys.argv[0]))
+	sys.exit(code)
+
+dryrun = False
+
+try:
+	opts, _ = getopt.getopt(sys.argv[1:], "nh")
+except getopt.GetoptError as err:
+	print(str(err))
+	usage(1)
+
+for o, _ in opts:
+	if o == "-h":
+		usage(0)
+	elif o == "-n":
+		dryrun = True
+
+def sh(cmd):
+	try:
+		return subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode('utf-8')
+	except subprocess.CalledProcessError as err:
+		sys.stderr.write(err.output.decode('utf-8'))
+		sys.exit(1)
+
+def split_version(branch):
+	m = re.match("^(.*)-v(\d+)$", branch)
+	if m is None:
+		return branch, 1
+	return m.group(1), int(m.group(2))
+
+branch = sh(["git", "rev-parse", "--abbrev-ref", "HEAD"]).rstrip()
+name, current = split_version(branch)
+
+if name == "master":
+	sys.exit("ERROR: won't version the 'master' branch")
+
+latest = current
+latest_branch = branch
+
+branches = sh(["git", "for-each-ref", "--format=%(refname:short)"]).rstrip().split("\n")
+for b in branches:
+	m = re.match("(|.*/)%s(-v(\d+))?$" % name, b)
+	if m is None:
+		continue
+	_, v = split_version(b)
+	if v > latest:
+		latest = v
+		latest_branch = b
+
+print("Latest branch is '%s'" % latest_branch)
+next_version = latest + 1
+checkout = ["git", "checkout", "-b", "%s-v%d" % (name, next_version)]
+
+if dryrun:
+	print("# " + " ".join(checkout))
+else:
+	sys.stdout.write(sh(checkout))
+
