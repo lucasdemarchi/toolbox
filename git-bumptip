@@ -1,0 +1,65 @@
+#!/usr/bin/env perl
+# Checks out the next version available of a given branch.
+
+use strict;
+use warnings;
+use Getopt::Std;
+use File::Basename;
+
+our ($opt_d, $opt_h);
+getopts("dh");
+
+if ($opt_h) {
+	my $basename = basename($0);
+	print <<"END";
+Usage: $basename [OPTIONS]
+Checks out the next version available of a given branch
+
+OPTIONS
+    -h             display this help message
+    -n             dry-run
+
+Also consider used version numbers that are not in local branches
+but only in a remote branch.
+END
+	exit 2;
+}
+
+sub split_version {
+	my $branch = shift;
+	if ($branch =~ m/^(.*)-v(\d+)$/) {
+		return ($1, $2);
+	}
+	return ($branch, 1);
+}
+
+my $branch = qx/git rev-parse --abbrev-ref HEAD/ or die;
+chomp($branch);
+
+my ($name, $current) = split_version($branch);
+
+my $next = $current;
+my $reason = $branch;
+
+open my $branches, "git for-each-ref --format='%(refname:short)' |" or die;
+while (<$branches>) {
+	chomp;
+	next unless m/^(|.*\/)$name(-v(\d+))?$/;
+	my $v = (split_version($_))[1];
+	if ($v > $next) {
+		$next = $v;
+		$reason = $_;
+	}
+}
+close($branches);
+
+$next++;   # bump!
+
+print "Latest version is branch '$reason'\n";
+my $cmd = "git checkout -b $name-v$next";
+
+if ($opt_d) {
+	print("# $cmd\n");
+} else {
+	system($cmd);
+}
