@@ -1,37 +1,18 @@
 #!/usr/bin/env python
 
-import getopt
+import argparse
 import os
 import re
 import subprocess
 import sys
 
-def usage(code):
-    print("""Usage: %s [OPTIONS]
-Checks out the next version available of a given branch
+parser = argparse.ArgumentParser(description='Check out the next version available of a given branch',
+        epilog="Also consider used version numbers that are not in local branches but only in a remote branch. It refuses to bump versions of the 'master' branch since this is usually a mistake.")
 
-OPTIONS
-    -h             display this help message
-    -n             dry-run
-
-Also consider used version numbers that are not in local branches
-but only in a remote branch. It refuses to bump versions of the
-'master' branch since this is usually a mistake.""" % os.path.basename(sys.argv[0]))
-    sys.exit(code)
-
-dryrun = False
-
-try:
-    opts, _ = getopt.getopt(sys.argv[1:], "nh")
-except getopt.GetoptError as err:
-    print(str(err))
-    usage(1)
-
-for o, _ in opts:
-    if o == "-h":
-        usage(0)
-    elif o == "-n":
-        dryrun = True
+parser.add_argument('-n', '--dry-run',
+        action='store_true', default=False,
+        help="dry-run, no action is actually taken")
+args = parser.parse_args()
 
 def sh(cmd):
     try:
@@ -69,8 +50,7 @@ print("Latest branch is '%s'" % latest_branch)
 next_version = latest + 1
 checkout = ["git", "checkout", "-b", "%s-v%d" % (name, next_version)]
 
-if dryrun:
+if args.dry_run:
     print("# " + " ".join(checkout))
 else:
     sys.stdout.write(sh(checkout))
-
