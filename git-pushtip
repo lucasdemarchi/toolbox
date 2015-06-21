@@ -12,6 +12,19 @@ OPTIONS
     -h             display this help message
 
 All the unknown options are passed directly to the git-push command.
+
+CONFIGURATION
+
+The following options are retrieved from git configuration:
+
+    pushtip.remote
+        Points to the remote repository to be used. If there's no remote
+        configured it will try to discover it using gitolite as remote
+        server
+
+    pushtip.branchprefix
+        Prefix to be used in branches pushed for review. This is usually
+        tip/<your-username>
 " 1>&$1
 }
 
