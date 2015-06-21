@@ -16,9 +16,6 @@ All the unknown options are passed directly to the git-push command.
     exit 1;
 }
 
-. $SCRIPT_DIR/uri_parser.sh
-. $SCRIPT_DIR/tip_config.sh
-
 OPT_WIP=0
 pushargs=""
 args=
@@ -36,6 +33,9 @@ for arg in "$@"; do
     esac
 done
 IFS=' ' read -a args <<< "$args"
+
+. $SCRIPT_DIR/uri_parser.sh
+. $SCRIPT_DIR/tip_config.sh
 
 TIP=${args[0]:-HEAD}
 BRANCH=$(basename $(git rev-parse --abbrev-ref --symbolic $TIP))
