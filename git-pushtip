@@ -12,8 +12,7 @@ OPTIONS
     -h             display this help message
 
 All the unknown options are passed directly to the git-push command.
-" 1>&2;
-    exit 1;
+" 1>&$1
 }
 
 OPT_WIP=0
@@ -23,7 +22,8 @@ for arg in "$@"; do
     case "$arg" in
         -w) OPT_WIP=1
             ;;
-        -h) usage
+        -h) usage 1
+            exit 0
             ;;
         # unknown options go to arguments to git-push
         -*) pushargs="$pushargs $arg"
