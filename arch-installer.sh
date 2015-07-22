@@ -29,6 +29,8 @@
 
 set -e
 
+SCRIPT_DIR=$(dirname ${BASH_SOURCE[0]})
+
 usage() {
     echo "
 Usage: $(basename $0) [OPTIONS] <disk or image file to re-format>
@@ -37,10 +39,12 @@ OPTIONS
     -x             comma-separated list of hooks to run as last step,
                    before unmounting directories. The hook can get the
                    rootfs location by reading the ROOTFS environment
-                   variable. Each item can be a file or directory. In
-                   case of directory it will be executed by sorting
-                   the files alphabetically. This option can be passed
-                   multiple times.
+                   variable. Each item can be a command or a path to a
+                   file or directory. If a command, the directory
+                   arch-installer-hooks is prepended to PATH environment
+                   variable. In case of a directory it will be executed
+                   by sorting the files alphabetically. This option may
+                   be passed multiple times.
 " 1>&$1;
 }
 
@@ -49,7 +53,11 @@ hooks=()
 execute_hook() {
     export ROOTFS
     local hook=$1
-    $hook
+    if [[ -f "$hook" ]]; then
+        bash "$hook"
+    else
+        bash -c "$hook"
+    fi
 }
 
 args=0
@@ -293,6 +301,9 @@ for hook in "${hooks[@]}"; do
             continue
         fi
         execute_hook "$hook"
+    else
+        # consider hook a command
+        PATH=$SCRIPT_DIR/arch-installer-hooks:$PATH execute_hook "$hook"
     fi
 done
 
