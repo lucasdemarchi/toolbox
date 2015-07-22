@@ -39,27 +39,26 @@ OPTIONS
                    rootfs location by reading the ROOTFS environment
                    variable. Each item can be a file or directory. In
                    case of directory it will be executed by sorting
-                   the files alphabetically
+                   the files alphabetically. This option can be passed
+                   multiple times.
 " 1>&$1;
 }
 
+hooks=()
+
 execute_hook() {
     export ROOTFS
-    for x in "$@"; do
-        if [ ! -f $x ] || [ ! -x $x ]; then
-            echo "Ignoring non-executable hook: $x" >&2
-            continue
-        fi
-        $x
-    done
+    local hook=$1
+    $hook
 }
-
-OPT_HOOKS=
 
 args=0
 while getopts "x:h" o; do
     case "${o}" in
-        x) OPT_HOOKS=${OPTARG}; args=$[$args + 2] ;;
+        x)
+            IFS=, read -ra arg_hooks <<<"${OPTARG}"
+            hooks+=("${arg_hooks[@]}")
+            args=$[$args + 2] ;;
         h) usage 1; exit 0;;
         \?) usage 2; exit 1;;
     esac
@@ -283,17 +282,19 @@ Name=en*
 DHCP=yes
 EOF
 
-if [ -n "$OPT_HOOKS" ]; then
-    IFS=, read -ra hooks <<<$OPT_HOOKS
-
-    for f in ${hooks[@]}; do
-        if [ -d $f ]; then
-            execute_hook $f/*
-        elif [ -f $f ]; then
-            execute_hook $f
+for hook in "${hooks[@]}"; do
+    if [ -d "$hook" ]; then
+        for f in "$hook"/*; do
+            execute_hook "$f"
+        done
+    elif [ -f "$hook" ]; then
+        if [ ! -x "$hook" ]; then
+            echo "Hook file \"$hook\" is non-executable, ignoring..." >&2
+            continue
         fi
-    done
-fi
+        execute_hook "$hook"
+    fi
+done
 
 sync
 printf "\n### finished\n"
