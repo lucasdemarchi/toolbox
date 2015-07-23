@@ -45,6 +45,14 @@ OPTIONS
                    variable. In case of a directory it will be executed
                    by sorting the files alphabetically. This option may
                    be passed multiple times.
+
+Examples:
+    # using built-in hook \"overlay\" to append contents of files under
+    # path/to/overlay to files under ROOTFS
+    arch-installer -x \"overlay append path/to/overlay\" /dev/sdx1
+
+    # copying my pacman mirrorlist to the fresh new system
+    arch-installer -x \"cp /etc/pacman.d/mirrorlist \\\$ROOTFS/etc/pacman.d/\" /dev/sdx1
 " 1>&$1;
 }
 
