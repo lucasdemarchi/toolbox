@@ -29,6 +29,8 @@
 
 set -e
 
+SCRIPT_DIR=$(dirname ${BASH_SOURCE[0]})
+
 usage() {
     echo "
 Usage: $(basename $0) [OPTIONS] <disk or image file to re-format>
@@ -37,29 +39,42 @@ OPTIONS
     -x             comma-separated list of hooks to run as last step,
                    before unmounting directories. The hook can get the
                    rootfs location by reading the ROOTFS environment
-                   variable. Each item can be a file or directory. In
-                   case of directory it will be executed by sorting
-                   the files alphabetically
+                   variable. Each item can be a command or a path to a
+                   file or directory. If a command, the directory
+                   arch-installer-hooks is prepended to PATH environment
+                   variable. In case of a directory it will be executed
+                   by sorting the files alphabetically. This option may
+                   be passed multiple times.
+
+Examples:
+    # using built-in hook \"overlay\" to append contents of files under
+    # path/to/overlay to files under ROOTFS
+    arch-installer -x \"overlay append path/to/overlay\" /dev/sdx1
+
+    # copying my pacman mirrorlist to the fresh new system
+    arch-installer -x \"cp /etc/pacman.d/mirrorlist \\\$ROOTFS/etc/pacman.d/\" /dev/sdx1
 " 1>&$1;
 }
 
+hooks=()
+
 execute_hook() {
     export ROOTFS
-    for x in "$@"; do
-        if [ ! -f $x ] || [ ! -x $x ]; then
-            echo "Ignoring non-executable hook: $x" >&2
-            continue
-        fi
-        $x
-    done
+    local hook=$1
+    if [[ -f "$hook" ]]; then
+        bash "$hook"
+    else
+        bash -c "$hook"
+    fi
 }
-
-OPT_HOOKS=
 
 args=0
 while getopts "x:h" o; do
     case "${o}" in
-        x) OPT_HOOKS=${OPTARG}; args=$[$args + 2] ;;
+        x)
+            IFS=, read -ra arg_hooks <<<"${OPTARG}"
+            hooks+=("${arg_hooks[@]}")
+            args=$[$args + 2] ;;
         h) usage 1; exit 0;;
         \?) usage 2; exit 1;;
     esac
@@ -283,17 +298,22 @@ Name=en*
 DHCP=yes
 EOF
 
-if [ -n "$OPT_HOOKS" ]; then
-    IFS=, read -ra hooks <<<$OPT_HOOKS
-
-    for f in ${hooks[@]}; do
-        if [ -d $f ]; then
-            execute_hook $f/*
-        elif [ -f $f ]; then
-            execute_hook $f
+for hook in "${hooks[@]}"; do
+    if [ -d "$hook" ]; then
+        for f in "$hook"/*; do
+            execute_hook "$f"
+        done
+    elif [ -f "$hook" ]; then
+        if [ ! -x "$hook" ]; then
+            echo "Hook file \"$hook\" is non-executable, ignoring..." >&2
+            continue
         fi
-    done
-fi
+        execute_hook "$hook"
+    else
+        # consider hook a command
+        PATH=$SCRIPT_DIR/arch-installer-hooks:$PATH execute_hook "$hook"
+    fi
+done
 
 sync
 printf "\n### finished\n"
