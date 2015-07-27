@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# Usage: overlay-replace <path>...
+#
+# Each <path> might be a path to a directory or a tarball. Each file
+# recursively found inside each <path> replaces the corresponding file under
+# ROOTFS. If the file doesn't exist in ROOTFS, a new file is created. All
+# sub-directories in the path to the file are created if they don't exist.
+
+while [[ -n $1 ]]; do
+    f=$1
+    if [[ -d $f ]]; then
+        cp --archive -T "$f" "$ROOTFS" || echo "overlay-replace: error on copying \"$f\" recursively, ignoring..."
+    elif [[ -f $f ]]; then
+        tar xf "$f" -C "$ROOTFS" || echo "overlay-replace: unable to extract tarball \"$f\", ignoring..."
+    else
+        echo "overlay-replace: argument \"$f\" is not a file or directory, ignoring..." >&2
+    fi
+    shift
+done
