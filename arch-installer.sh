@@ -91,6 +91,13 @@ if [ -z "$1" ]; then
 fi
 echo $1
 
+# make sure we have a current package database and working
+# network connection
+pacman -Sy || {
+    echo "Cannot update package database - is the network up and running?" >&2
+    exit 1
+}
+
 trap '
     ret=$?;
     set +e;
@@ -187,13 +194,6 @@ mkdir $ROOTFS/boot
 mount $BOOT_PART $ROOTFS/boot
 
 printf "\n### download and install base packages\n"
-# make sure we have a current package database and working
-# network connection
-pacman -Syy
-if [ $? = 1 ] ; then
-    echo "Cannot update package database - is the network up and running?"
-    exit 1
-fi
 pacman -Sg base | cut -d ' ' -f 2 | \
     sed -e /^linux\$/d       \
         -e /^mdadm/d         \
