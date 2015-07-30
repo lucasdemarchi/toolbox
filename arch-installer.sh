@@ -216,7 +216,6 @@ pacman -Sg base | cut -d ' ' -f 2 | \
 pacstrap -c $ROOTFS \
     mkinitcpio      \
     bash-completion \
-    gummiboot       \
     openssh         \
     i2c-tools
 
@@ -240,7 +239,7 @@ echo "en_US.UTF-8 UTF-8" >> $ROOTFS/etc/locale.gen
 chroot $ROOTFS locale-gen
 
 printf "\n### install boot loader\n"
-chroot $ROOTFS gummiboot install --no-variables
+chroot $ROOTFS bootctl install --no-variables
 
 mkdir -p $ROOTFS/boot/loader/entries
 read MACHINE_ID < $ROOTFS/etc/machine-id
