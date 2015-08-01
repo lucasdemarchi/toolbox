@@ -46,6 +46,11 @@ OPTIONS
                    by sorting the files alphabetically. This option may
                    be passed multiple times.
 
+    -l             Force installation, not checking if network is available
+                   using local pacman database and cache. This relies on all
+                   packages being already present in host cache. If they
+                   aren't the installer will fail later.
+
 Examples:
     # using built-in hook \"overlay\" to append contents of files under
     # path/to/overlay to files under ROOTFS
@@ -55,6 +60,8 @@ Examples:
     arch-installer -x \"cp /etc/pacman.d/mirrorlist \\\$ROOTFS/etc/pacman.d/\" /dev/sdx1
 " 1>&$1;
 }
+
+OPT_LOCAL=""
 
 hooks=()
 
@@ -73,12 +80,15 @@ execute_hook() {
 }
 
 args=0
-while getopts "x:h" o; do
+while getopts "x:lh" o; do
     case "${o}" in
         x)
             IFS=, read -ra arg_hooks <<<"${OPTARG}"
             hooks+=("${arg_hooks[@]}")
             args=$[$args + 2] ;;
+        l)
+            OPT_LOCAL="-C $SCRIPT_DIR/arch-installer-files/pacman.conf"
+            args=$[$args + 1] ;;
         h) usage 1; exit 0;;
         \?) usage 2; exit 1;;
     esac
@@ -90,6 +100,13 @@ if [ -z "$1" ]; then
     exit 1
 fi
 echo $1
+
+# make sure we have a current package database and working
+# network connection
+[ -n "$OPT_LOCAL" ] || pacman -Sy || {
+    echo "Cannot update package database - is the network up and running?" >&2
+    exit 1
+}
 
 trap '
     ret=$?;
@@ -187,13 +204,6 @@ mkdir $ROOTFS/boot
 mount $BOOT_PART $ROOTFS/boot
 
 printf "\n### download and install base packages\n"
-# make sure we have a current package database and working
-# network connection
-pacman -Syy
-if [ $? = 1 ] ; then
-    echo "Cannot update package database - is the network up and running?"
-    exit 1
-fi
 pacman -Sg base | cut -d ' ' -f 2 | \
     sed -e /^linux\$/d       \
         -e /^mdadm/d         \
@@ -210,16 +220,7 @@ pacman -Sg base | cut -d ' ' -f 2 | \
         -e /^dhcpcd/d        \
         -e /^netctl/d        \
         -e /^s-nail/d        \
-    | pacstrap -c $ROOTFS -
-
-# install additional packages
-pacstrap -c $ROOTFS \
-    mkinitcpio      \
-    bash-completion \
-    gummiboot       \
-    openssh         \
-    i2c-tools
-
+    | pacstrap -c $OPT_LOCAL $ROOTFS -
 
 # mount kernel filesystems and /boot again
 mount --bind /proc $ROOTFS/proc
@@ -228,6 +229,13 @@ mount --bind /sys $ROOTFS/sys
 if ! findmnt $ROOTFS/boot >/dev/null; then
     mount $BOOT_PART $ROOTFS/boot
 fi
+
+# install additional packages
+pacman --root=$ROOTFS --noconfirm -S \
+    mkinitcpio      \
+    bash-completion \
+    openssh         \
+    i2c-tools
 
 # at bootup mount / read-writable
 cat > $ROOTFS/etc/fstab <<EOF
@@ -240,7 +248,7 @@ echo "en_US.UTF-8 UTF-8" >> $ROOTFS/etc/locale.gen
 chroot $ROOTFS locale-gen
 
 printf "\n### install boot loader\n"
-chroot $ROOTFS gummiboot install --no-variables
+chroot $ROOTFS bootctl install --no-variables
 
 mkdir -p $ROOTFS/boot/loader/entries
 read MACHINE_ID < $ROOTFS/etc/machine-id
