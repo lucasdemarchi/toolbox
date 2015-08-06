@@ -1,0 +1,15 @@
+#!/bin/sh
+
+if [ -z "$KVM_THAT_BIOS" ]; then
+   KVM_THAT_BIOS=/usr/share/ovmf/ovmf_x64.bin
+fi
+
+exec qemu-system-x86_64 \
+     -serial stdio \
+     -display none \
+     -machine accel=kvm \
+     -m 256 \
+     -bios $KVM_THAT_BIOS \
+     -net user,hostfwd=tcp::10022-:22,hostfwd=tcp::12345-:12345 \
+     -net nic \
+     $@

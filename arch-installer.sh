@@ -324,4 +324,9 @@ for hook in "${hooks[@]}"; do
 done
 
 sync
+
+if [ -f "$1" -a -n "$SUDO_UID" ]; then
+    chown $SUDO_UID:$SUDO_GID $1
+fi
+
 printf "\n### finished\n"
