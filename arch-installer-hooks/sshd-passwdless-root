@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# This hook configures sshd to allow root access through ssh with no password
+
+[[ ! -f "$ROOTFS/etc/ssh/sshd_config" ]] && exit
+
+sed -i "$ROOTFS/etc/ssh/sshd_config" \
+    -e "s/#PermitRootLogin .*/PermitRootLogin yes/" \
+    -e "s/#PermitEmptyPasswords .*/PermitEmptyPasswords yes/"
