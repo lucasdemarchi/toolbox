@@ -229,6 +229,7 @@ mount --bind /sys $ROOTFS/sys
 if ! findmnt $ROOTFS/boot >/dev/null; then
     mount $BOOT_PART $ROOTFS/boot
 fi
+mount -t tmpfs none $ROOTFS/run
 
 # install additional packages
 pacman --root=$ROOTFS --noconfirm -S \
