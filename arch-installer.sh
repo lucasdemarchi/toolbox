@@ -234,8 +234,7 @@ fi
 pacman --root=$ROOTFS --noconfirm -S \
     mkinitcpio      \
     bash-completion \
-    openssh         \
-    i2c-tools
+    openssh
 
 # at bootup mount / read-writable
 cat > $ROOTFS/etc/fstab <<EOF
