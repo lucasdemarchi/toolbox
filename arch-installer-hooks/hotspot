@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# Usage: hotspot iface ssid password [address]
+#
+# Allow to create a hotspot using the interface, ssid and password given
+# as parameters
+
+[[ $# -lt 3 ]] && \
+    echo "Usage: hotspot iface ssid password [address]" &&
+    exit 1
+
+IFACE=$1
+SSID=$2
+PASSWD=$3
+ADDRESS=${4:-192.168.3.1/24}
+
+pacman --root=$ROOTFS --noconfirm -S hostapd
+systemctl --root=$ROOTFS enable hostapd
+
+cat > $ROOTFS/etc/hostapd/hostapd.conf <<EOF
+ssid=$SSID
+wpa_passphrase=$PASSWD
+interface=$IFACE
+auth_algs=3
+channel=11
+driver=nl80211
+hw_mode=g
+logger_stdout=-1
+logger_stdout_level=2
+max_num_sta=5
+rsn_pairwise=CCMP
+wpa=2
+wpa_key_mgmt=WPA-PSK
+wpa_pairwise=TKIP CCMP
+EOF
+
+cat > $ROOTFS/etc/systemd/network/wlan.network <<EOF
+[Match]
+Name=$IFACE
+
+[Network]
+Address=$ADDRESS
+DHCP=no
+DHCPServer=yes
+EOF
+
+mkdir -p $ROOTFS/etc/systemd/system/hostapd.service.d/
+cat > $ROOTFS/etc/systemd/system/hostapd.service.d/override.conf <<EOF
+[Unit]
+Requires=sys-subsystem-net-devices-${IFACE}.device
+After=sys-subsystem-net-devices-${IFACE}.device
+EOF
