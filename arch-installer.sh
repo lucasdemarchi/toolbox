@@ -229,13 +229,13 @@ mount --bind /sys $ROOTFS/sys
 if ! findmnt $ROOTFS/boot >/dev/null; then
     mount $BOOT_PART $ROOTFS/boot
 fi
+mount -t tmpfs none $ROOTFS/run
 
 # install additional packages
 pacman --root=$ROOTFS --noconfirm -S \
     mkinitcpio      \
     bash-completion \
-    openssh         \
-    i2c-tools
+    openssh
 
 # at bootup mount / read-writable
 cat > $ROOTFS/etc/fstab <<EOF

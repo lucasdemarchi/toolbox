@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# Usage: pkg-add <pkg>...
+#
+# Install additional packages on the final image.
+
+[[ $# -lt 1 ]] && \
+    echo "Usage: pkg-add <pkg>..." &&
+    exit 1
+
+pacman --root=$ROOTFS --noconfirm -S "$@"
