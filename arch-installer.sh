@@ -127,6 +127,11 @@ trap '
 # clean up after ourselves no matter how we die.
 trap 'exit 1;' SIGINT
 
+if [[ "$1" == /dev/* ]] && [[ ! -b "$1" ]]; then
+    echo "Couldn't find block device $1" >&2
+    exit 1
+fi
+
 if [[ ! -e "$1" ]] || [[ -f "$1" ]]; then
     dd if=/dev/null of="$1" bs=1M seek=4096
     DEV=$(losetup -f --show "$1")
