@@ -1,0 +1,13 @@
+#!/bin/bash
+
+echo
+echo The image is being built at
+echo
+echo "    ${ROOTFS}"
+echo
+echo Exit the shell to continue the process.
+echo
+
+cd ${ROOTFS}
+
+bash
