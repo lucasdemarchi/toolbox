@@ -27,6 +27,10 @@ while getopts "b:r:h" o; do
 done
 shift $args
 
+if [ $# -ne 1 ]; then
+    usage 2
+fi
+
 PR=$1
 
 if [ -n "$OPT_BRANCH" ] && [ $(git rev-parse $OPT_BRANCH) ]; then
