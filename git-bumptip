@@ -7,12 +7,13 @@ import subprocess
 import sys
 
 parser = argparse.ArgumentParser(description='Check out the next version available of a given branch',
-        epilog="Also consider used version numbers that are not in local branches but only in a remote branch. It refuses to bump versions of the 'master' branch since this is usually a mistake.")
+                                 epilog="Also consider used version numbers that are not in local branches but only in a remote branch. It refuses to bump versions of the 'master' branch since this is usually a mistake.")
 
 parser.add_argument('-n', '--dry-run',
-        action='store_true', default=False,
-        help="dry-run, no action is actually taken")
+                    action='store_true', default=False,
+                    help="dry-run, no action is actually taken")
 args = parser.parse_args()
+
 
 def sh(cmd):
     try:
@@ -20,6 +21,7 @@ def sh(cmd):
     except subprocess.CalledProcessError as err:
         sys.stderr.write(err.output.decode('utf-8'))
         sys.exit(1)
+
 
 def split_version(branch):
     m = re.match("^(.*)-v(\d+)$", branch)
