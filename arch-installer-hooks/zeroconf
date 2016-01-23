@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# Usage: zeroconf
+#
+# Enable zeroconf through avahi and configuring systemd-networkd on
+# ethernet to get link-local address
+
+pacman --root=$ROOTFS --noconfirm -S avahi nss-mdns
+systemctl --root=$ROOTFS enable avahi-daemon
+
+sed -i '/\[Network\]/a LinkLocalAddressing=yes' \
+    $ROOTFS/usr/lib/systemd/network/ether.network
+
+sed -i 's/^#publish-workstation.*/publish-workstation=yes/' \
+    $ROOTFS/etc/avahi/avahi-daemon.conf
+
+sed -i 's/^hosts.*/hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4/' \
+    $ROOTFS//etc/nsswitch.conf
