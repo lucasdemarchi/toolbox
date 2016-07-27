@@ -1,0 +1,18 @@
+#!/bin/bash
+
+set -ex
+
+FILE=$1
+
+KVER=${1/linux-}
+KVER=${KVER//.tar.xz}
+
+# sanity check ifnux-4.4.3-minnow-drone+.tar.xz file has that module directory
+have_modules=$(tar -tf $FILE usr/lib/modules/$KVER | head -n 1)
+if [ -z "$have_modules" ]; then
+    echo "wrong file name or kernel doesn't have any modules directory" >&2
+    exit 1
+fi
+
+tar -C / -mxf $FILE
+kernel-install add $KVER $FILE
