@@ -1,0 +1,78 @@
+#!/bin/bash
+
+set -e
+
+usage() {
+    echo "
+Usage: $(basename $0) [OPTIONS] <branch> <PR> [message]
+Apply a pull-request from github
+
+OPTIONS
+    -r <remote>    Use <remote> instead of origin to fetch the pr
+" 1>&$1;
+    exit $(($1 - 1));
+}
+
+OPT_REMOTE="origin"
+args=0
+while getopts "r:h" o; do
+    case "${o}" in
+        r) OPT_REMOTE=${OPTARG}; args=$[$args + 2] ;;
+        h) usage 1;;
+        \?) usage 2;;
+    esac
+done
+shift $args
+
+if [ $# -lt 2 ]; then
+    usage 2
+fi
+
+set -e
+
+BRANCH=$1
+PR=$2
+MSG="${3:-Applied, thanks!}"
+REMOTE=$(git config remote.$OPT_REMOTE.url)
+REMOTE=${REMOTE/.git}
+REMOTE=${REMOTE/*github.com:}
+
+TMP_BRANCH=apply-pr
+
+set -e
+
+git fetch -f $OPT_REMOTE refs/pull/$PR/head:$TMP_BRANCH
+
+echo "Applying PR #$PR on $BRANCH of $REMOTE with following commits:"
+GITPAGER=cat git log --reverse --pretty=oneline --abbrev-commit $BRANCH..$TMP_BRANCH
+
+read -p "Continue (y/N)? "  choice
+case "$choice" in 
+    y|Y) choice="yes";;
+    n|N) choice="no";;
+    *) choice="no";;
+esac
+if [ "$choice" = "no" ]; then
+    exit 0;
+fi
+
+set -ex
+
+if [ -z "$GITHUB_TOKEN" ]; then
+    read -p "user:" user
+    AUTH=(-u $user)
+else
+    AUTH=(-H "Authorization: token $GITHUB_TOKEN")
+fi
+
+git checkout $BRANCH
+git cherry-pick HEAD..$TMP_BRANCH
+
+
+git push $OPT_REMOTE $BRANCH
+
+curl "${AUTH[@]}" --data "{\"body\": \"$MSG\"}" \
+	https://api.github.com/repos/$REMOTE/issues/$PR/comments
+
+curl "${AUTH[@]}" --request PATCH --data '{"state": "closed"}' \
+	https://api.github.com/repos/$REMOTE/issues/$PR
