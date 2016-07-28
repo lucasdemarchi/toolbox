@@ -9,13 +9,32 @@ trap '
         rm -rf $ROOTFS
     fi
     if [[ $ret -ne 0 ]]; then
-        echo FAILED TO INSTALL CUSTOM KERNEL >&2
+        echo FAILED TO GENERATE CUSTOM KERNEL >&2
     fi
     exit $ret;
     ' EXIT
 
 # clean up after ourselves no matter how we die.
 trap 'exit 1;' SIGINT
+
+usage() {
+    echo "
+Usage: $(basename $0) [OPTIONS]
+Pack a kernel to be installed in another board
+
+OPTIONS
+" 1>&$1;
+    exit $(($1 - 1));
+}
+
+args=0
+while getopts "h" o; do
+    case "${o}" in
+        h) usage 1;;
+        \?) usage 2;;
+    esac
+done
+shift $args
 
 KVER=$(make kernelrelease)
 ROOTFS=$(mktemp -d --tmpdir custom-kernel.XXXXXXXX)
