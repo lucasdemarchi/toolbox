@@ -24,7 +24,7 @@ tar -C / -m -xf $FILE
 # generate an initrd
 
 if [ ! -z "$(which kernel-install)" ]; then
-    kernel-install add $KVER $FILE
+    kernel-install add $KVER /usr/lib/custom-kernel/vmlinuz
 else
     echo "Just going to install the kernel, bootloader config is on you"
     cp /usr/lib/custom-kernel/vmlinuz /boot/${2:-vmlinuz-test}
