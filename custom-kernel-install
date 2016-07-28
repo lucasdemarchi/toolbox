@@ -14,5 +14,18 @@ if [ -z "$have_modules" ]; then
     exit 1
 fi
 
-tar -C / -mxf $FILE
-kernel-install add $KVER $FILE
+# remove previous modules
+rm -rf /usr/lib/modules/$KVER
+
+# install kernel and modules on /usr/lib
+tar -C / -m -xf $FILE
+
+# copy kernel to boot partition, install bootloader entry and possibly
+# generate an initrd
+
+if [ ! -z "$(which kernel-install)" ]; then
+    kernel-install add $KVER $FILE
+else
+    echo "Just going to install the kernel, bootloader config is on you"
+    cp /usr/lib/custom-kernel/vmlinuz /boot/${2:-vmlinuz-test}
+fi
