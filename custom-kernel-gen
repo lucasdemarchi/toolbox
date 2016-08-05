@@ -23,13 +23,18 @@ Usage: $(basename $0) [OPTIONS]
 Pack a kernel to be installed in another board
 
 OPTIONS
+    -x             generate auto-extract script
 " 1>&$1;
     exit $(($1 - 1));
 }
 
+SCRIPT_DIR=$(dirname $(realpath ${BASH_SOURCE[0]}))
+
+OPT_AUTOEXTRACT=0
 args=0
-while getopts "h" o; do
+while getopts "xh" o; do
     case "${o}" in
+        x) OPT_AUTOEXTRACT=1 ;;
         h) usage 1;;
         \?) usage 2;;
     esac
@@ -60,7 +65,15 @@ echo $KVER > $ROOTFS/usr/lib/custom-kernel/VERSION
 # target doesn't need the workaround, so now remove it
 rm $ROOTFS/lib
 
-D=$PWD
-( cd $ROOTFS && tar -cJf $D/linux-${KVER}.tar.xz * )
-
-xz --stdout .config > linux-${KVER}-config.xz
+if [ $OPT_AUTOEXTRACT -eq 1 ]; then
+    s=${PWD}/linux-$KVER.sh
+    cat $SCRIPT_DIR/custom-kernel-install > $s
+    echo -e "\nexit 0" >> $s
+    echo -e "\n__CUSTOM_KERNEL_BELLOW__" >> $s
+    ( cd $ROOTFS && tar -cJ * >> $s )
+    chmod +x $s
+else
+    D=${PWD}
+    ( cd $ROOTFS && tar -cJf $D/linux-${KVER}.tar.xz * )
+    xz --stdout .config > linux-${KVER}-config.xz
+fi

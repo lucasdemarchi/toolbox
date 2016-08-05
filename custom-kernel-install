@@ -2,14 +2,32 @@
 
 set -ex
 
-FILE=$1
+FILE=
+KVER=
+HAVE_MODULES=
+SCRIPT=$(realpath ${BASH_SOURCE[0]})
 
-KVER=${1/linux-}
-KVER=${KVER//.tar.xz}
+if [ $# -gt 0 ]; then
+    FILE=$1
+    KVER=$(basename $FILE)
+    KVER=${KVER/linux-}
+    KVER=${KVER//.tar.xz}
+    HAVE_MODULES=$(tar -tf $FILE usr/lib/modules/$KVER | head -n 1)
+else
+    FILE=$SCRIPT
+    KVER=$(basename $FILE)
+    KVER=${KVER/linux-}
+    KVER=${KVER//.sh}
 
-# sanity check ifnux-4.4.3-minnow-drone+.tar.xz file has that module directory
-have_modules=$(tar -tf $FILE usr/lib/modules/$KVER | head -n 1)
-if [ -z "$have_modules" ]; then
+    # check if we have embedded custom kernel
+    if grep -e "^__CUSTOM_KERNEL_BELLOW__" ${SCRIPT}; then
+	HAVE_MODULES=$(sed -e '1,/^__CUSTOM_KERNEL_BELLOW__/d' ${SCRIPT} | \
+		tar -tJ usr/lib/modules/$KVER | head -n 1)
+    fi
+fi
+
+# sanity check if file has that module directory
+if [ -z "$HAVE_MODULES" ]; then
     echo "wrong file name or kernel doesn't have any modules directory" >&2
     exit 1
 fi
@@ -18,7 +36,12 @@ fi
 rm -rf /usr/lib/modules/$KVER
 
 # install kernel and modules on /usr/lib
-tar -C / -m -xf $FILE
+if [[ !  "$FILE" = "$SCRIPT" ]]; then
+    tar -C / -mxJf $FILE
+else
+    sed -e '1,/^__CUSTOM_KERNEL_BELLOW__/d' ${SCRIPT} | \
+            tar -C / -mxJ
+fi
 
 # copy kernel to boot partition, install bootloader entry and possibly
 # generate an initrd
