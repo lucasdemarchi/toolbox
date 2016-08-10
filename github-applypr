@@ -43,7 +43,9 @@ set -e
 
 git fetch -f $OPT_REMOTE refs/pull/$PR/head:$TMP_BRANCH
 
-echo "Applying PR #$PR on $BRANCH of $REMOTE with following commits:"
+RBRANCH=$(basename $(git config branch.$BRANCH.merge))
+
+echo "Applying PR #$PR on $RBRANCH of $REMOTE with following commits:"
 GITPAGER=cat git log --reverse --pretty=oneline --abbrev-commit $BRANCH..$TMP_BRANCH
 
 read -p "Continue (y/N)? "  choice
