@@ -88,7 +88,7 @@ git cherry-pick HEAD..$TMP_BRANCH
 git push $OPT_REMOTE $BRANCH
 
 curl "${AUTH[@]}" --data "{\"body\": \"$MSG\"}" \
-	https://api.github.com/repos/$REMOTE/issues/$PR/comments
+    https://api.github.com/repos/$REMOTE/issues/$PR/comments
 
 curl "${AUTH[@]}" --request PATCH --data '{"state": "closed"}' \
-	https://api.github.com/repos/$REMOTE/issues/$PR
+    https://api.github.com/repos/$REMOTE/issues/$PR
