@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -e
-
 usage() {
     echo "
 Usage: $(basename $0) [OPTIONS] <branch> <PR> [message]
@@ -11,6 +9,15 @@ OPTIONS
     -r <remote>    Use <remote> instead of origin to fetch the pr
 " 1>&$1;
     exit $(($1 - 1));
+}
+
+ask_confirmation() {
+    read -p "Continue (y/N)? "  choice
+    case "$choice" in
+        y|Y) return 0;;
+        n|N) return 1;;
+        *) return 1;;
+    esac
 }
 
 OPT_REMOTE="origin"
@@ -28,33 +35,38 @@ if [ $# -lt 2 ]; then
     usage 2
 fi
 
-set -e
-
 BRANCH=$1
 PR=$2
 MSG="${3:-Applied, thanks!}"
 REMOTE=$(git config remote.$OPT_REMOTE.url)
 REMOTE=${REMOTE/.git}
 REMOTE=${REMOTE/*github.com:}
+NEED_REBASE=0
 
 TMP_BRANCH=apply-pr
 
-set -e
+RBRANCH=$(basename $(git config branch.$BRANCH.merge))
+
+if [ "$(git rev-parse $BRANCH)" != "$(git rev-parse $OPT_REMOTE/$RBRANCH)" ]; then
+    if git merge-base --is-ancestor $BRANCH $OPT_REMOTE/$RBRANCH; then
+        echo "Local branch $BRANCH and remote $OPT_REMOTE/$RBRANCH do not point to the "
+        echo "same commit, but it is a fastforward."
+        if ! ask_confirmation; then
+            exit 0
+        fi
+        NEED_REBASE=1
+    else
+        echo "Local branch $BRANCH and remote $OPT_REMOTE/$RBRANCH do not point to the "
+        echo "same commit, and it is NOT a fastforward. Can't continue."
+        exit 1
+    fi
+fi
 
 git fetch -f $OPT_REMOTE refs/pull/$PR/head:$TMP_BRANCH
 
-RBRANCH=$(basename $(git config branch.$BRANCH.merge))
-
-echo "Applying PR #$PR on $RBRANCH of $REMOTE with following commits:"
+echo "Applying PR #$PR on $RBRANCH of $OPT_REMOTE ($REMOTE) with following commits:"
 GITPAGER=cat git log --reverse --pretty=oneline --abbrev-commit $BRANCH..$TMP_BRANCH
-
-read -p "Continue (y/N)? "  choice
-case "$choice" in 
-    y|Y) choice="yes";;
-    n|N) choice="no";;
-    *) choice="no";;
-esac
-if [ "$choice" = "no" ]; then
+if ! ask_confirmation; then
     exit 0;
 fi
 
@@ -68,8 +80,10 @@ else
 fi
 
 git checkout $BRANCH
+if [ $NEED_REBASE == 1 ]; then
+    git rebase $OPT_REMOTE/$RBRANCH
+fi
 git cherry-pick HEAD..$TMP_BRANCH
-
 
 git push $OPT_REMOTE $BRANCH
 
