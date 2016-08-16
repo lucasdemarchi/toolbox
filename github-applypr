@@ -51,6 +51,8 @@ if [ "$(git rev-parse $BRANCH)" != "$(git rev-parse $OPT_REMOTE/$RBRANCH)" ]; th
     if git merge-base --is-ancestor $BRANCH $OPT_REMOTE/$RBRANCH; then
         echo "Local branch $BRANCH and remote $OPT_REMOTE/$RBRANCH do not point to the "
         echo "same commit, but it is a fastforward."
+        echo "I need to take the following commits from upstream:"
+        GITPAGER=cat git log --reverse --pretty=oneline --abbrev-commit $BRANCH..$OPT_REMOTE/$RBRANCH
         if ! ask_confirmation; then
             exit 0
         fi
