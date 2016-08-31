@@ -67,7 +67,7 @@ fi
 git fetch -f $OPT_REMOTE refs/pull/$PR/head:$TMP_BRANCH
 
 echo "Applying PR #$PR on $RBRANCH of $OPT_REMOTE ($REMOTE) with following commits:"
-GITPAGER=cat git log --reverse --pretty=oneline --abbrev-commit $BRANCH..$TMP_BRANCH
+GITPAGER=cat git log --reverse --pretty=oneline --abbrev-commit $OPT_REMOTE/$RBRANCH..$TMP_BRANCH
 if ! ask_confirmation; then
     exit 0;
 fi
