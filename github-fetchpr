@@ -33,7 +33,7 @@ fi
 
 PR=$1
 
-if [ -n "$OPT_BRANCH" ] && [ $(git rev-parse $OPT_BRANCH --) ]; then
+if [ -n "$OPT_BRANCH" ] && [ $(git rev-parse $OPT_BRANCH -- 2>/dev/null) ]; then
     echo "Branch $OPT_BRANCH already exists" >&2
     exit 1
 fi
