@@ -43,6 +43,12 @@ else
             tar -C / -mxJ
 fi
 
+# target didn't adhere to the /usr move
+if [ "$(realpath /lib/modules)" != "/usr/lib/modules" ]; then
+    rm -rf /lib/modules/$KVER
+    mv /usr/lib/modules/$KVER /lib/modules/$KVER
+fi
+
 # copy kernel to boot partition, install bootloader entry and possibly
 # generate an initrd
 
