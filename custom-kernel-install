@@ -7,12 +7,42 @@ KVER=
 HAVE_MODULES=
 SCRIPT=$(realpath ${BASH_SOURCE[0]})
 
+usage() {
+    echo "
+Usage: $(basename $0) [OPTIONS]
+Unpack a kernel and install on this board board
+
+OPTIONS
+    -c [J|z]       pass flag to tar while unpacking
+" 1>&$1;
+    exit $(($1 - 1));
+}
+
+OPT_UNCOMPRESS=""
+EXT=""
+args=0
+while getopts "ch" o; do
+    case "${o}" in
+        c) OPT_UNCOMPRESS=${OPTARG}; args=$[$args + 2] ;;
+        h) usage 1;;
+        \?) usage 2;;
+    esac
+done
+shift $args
+
+case "$OPT_UNCOMPRESS" in
+    J) EXT="tar.xz";;
+    z) EXT="tar.gz";;
+    "") EXT=".tar";;
+    \?) usage 2;;
+esac
+
 if [ $# -gt 0 ]; then
     FILE=$1
     KVER=$(basename $FILE)
     KVER=${KVER/linux-}
-    KVER=${KVER//.tar.xz}
-    HAVE_MODULES=$(tar -tf $FILE usr/lib/modules/$KVER | head -n 1)
+    KVER=${KVER//${EXT}}
+    HAVE_MODULES=$(tar -t${OPT_UNCOMPRESS}f $FILE usr/lib/modules/$KVER | head -n 1)
 else
     FILE=$SCRIPT
     KVER=$(basename $FILE)
@@ -22,7 +52,7 @@ else
     # check if we have embedded custom kernel
     if grep -e "^__CUSTOM_KERNEL_BELLOW__" ${SCRIPT}; then
 	HAVE_MODULES=$(sed -e '1,/^__CUSTOM_KERNEL_BELLOW__/d' ${SCRIPT} | \
-		tar -tJ usr/lib/modules/$KVER | head -n 1)
+		tar -t${OPT_UNCOMPRESS} usr/lib/modules/$KVER | head -n 1)
     fi
 fi
 
@@ -37,10 +67,10 @@ rm -rf /usr/lib/modules/$KVER
 
 # install kernel and modules on /usr/lib
 if [[ !  "$FILE" = "$SCRIPT" ]]; then
-    tar -C / -mxJf $FILE
+    tar -C / -mx${OPT_UNCOMPRESS}f $FILE
 else
     sed -e '1,/^__CUSTOM_KERNEL_BELLOW__/d' ${SCRIPT} | \
-            tar -C / -mxJ
+            tar -C / -mx${OPT_UNCOMPRESS}
 fi
 
 # target didn't adhere to the /usr move

@@ -24,6 +24,7 @@ Pack a kernel to be installed in another board
 
 OPTIONS
     -x             generate auto-extract script
+    -c [J|z]       pass flag to tar while packing
 " 1>&$1;
     exit $(($1 - 1));
 }
@@ -31,15 +32,25 @@ OPTIONS
 SCRIPT_DIR=$(dirname $(realpath ${BASH_SOURCE[0]}))
 
 OPT_AUTOEXTRACT=0
+OPT_COMPRESS=""
+EXT=""
 args=0
-while getopts "xh" o; do
+while getopts "xc:h" o; do
     case "${o}" in
         x) OPT_AUTOEXTRACT=1 ;;
+        c) OPT_COMPRESS=${OPTARG}; args=$[$args + 2] ;;
         h) usage 1;;
         \?) usage 2;;
     esac
 done
 shift $args
+
+case "$OPT_COMPRESS" in
+    J) EXT="tar.xz";;
+    z) EXT="tar.gz";;
+    "") EXT=".tar";;
+    \?) usage 2;;
+esac
 
 KVER=$(make kernelrelease)
 ROOTFS=$(mktemp -d --tmpdir custom-kernel.XXXXXXXX)
@@ -67,13 +78,13 @@ rm $ROOTFS/lib
 
 if [ $OPT_AUTOEXTRACT -eq 1 ]; then
     s=${PWD}/linux-$KVER.sh
-    cat $SCRIPT_DIR/custom-kernel-install > $s
+    sed "s/^OPT_UNCOMPRESS=.*/OPT_UNCOMPRESS=$OPT_COMPRESS/" $SCRIPT_DIR/custom-kernel-install > $s
     echo -e "\nexit 0" >> $s
     echo -e "\n__CUSTOM_KERNEL_BELLOW__" >> $s
-    ( cd $ROOTFS && tar -cJ * >> $s )
+    ( cd $ROOTFS && tar -c${OPT_COMPRESS} * >> $s )
     chmod +x $s
 else
     D=${PWD}
-    ( cd $ROOTFS && tar -cJf $D/linux-${KVER}.tar.xz * )
+    ( cd $ROOTFS && tar -c${OPT_COMPRESS}f $D/linux-${KVER}${EXT} * )
     xz --stdout .config > linux-${KVER}-config.xz
 fi
