@@ -65,6 +65,9 @@ fi
 # remove previous modules
 rm -rf /usr/lib/modules/$KVER
 
+# remove previous kernel
+kernel-install remove $KVER
+
 # install kernel and modules on /usr/lib
 if [[ !  "$FILE" = "$SCRIPT" ]]; then
     tar -C / -mx${OPT_UNCOMPRESS}f $FILE
