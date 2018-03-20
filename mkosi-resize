@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# run this script on the target disk after dd'ing the image there
+# it only works when the root partition is the last one
+
+disk=$1
+ROOT_PARTITION_X86_64="F68BCE3-E8CD-4DB1-96E7-FBCAF984B709"
+
+sfdisk --dump $disk | sed "/$ROOT_PARTITION_X86_64/s/[[:space:]]*size=[[:space:]]*[^,]*,//" | \
+    sfdisk $disk
+
+read part xxxxx <<<$(sfdisk --dump $disk | grep $ROOT_PARTITION_X86_64)
+e2fsck -f $part
+resize2fs $part
