@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -ex
 
 trap '
     ret=$?;
@@ -63,8 +63,8 @@ ln -s usr/lib $ROOTFS/lib
 make modules_install INSTALL_MOD_PATH=$ROOTFS
 
 # on target this will mean nothing
-rm $ROOTFS/usr/lib/modules/$KVER/build
-rm $ROOTFS/usr/lib/modules/$KVER/source
+rm -f $ROOTFS/usr/lib/modules/$KVER/build || true
+rm -f $ROOTFS/usr/lib/modules/$KVER/source || true
 
 # copy the kernel image over to /usr/lib/custom-kernel - only one kernel will
 # be kept there... user is supposed to call kernel-install on target (which
