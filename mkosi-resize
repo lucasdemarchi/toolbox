@@ -4,7 +4,7 @@
 # it only works when the root partition is the last one
 
 disk=$1
-ROOT_PARTITION_X86_64="F68BCE3-E8CD-4DB1-96E7-FBCAF984B709"
+ROOT_PARTITION_X86_64="4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709"
 
 sfdisk --dump $disk | sed "/$ROOT_PARTITION_X86_64/s/[[:space:]]*size=[[:space:]]*[^,]*,//" | \
     sfdisk $disk
