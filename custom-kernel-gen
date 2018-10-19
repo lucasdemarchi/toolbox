@@ -71,6 +71,7 @@ rm -f $ROOTFS/usr/lib/modules/$KVER/source || true
 # copies this kernel to /boot) before installing another kernel
 mkdir -p $ROOTFS/usr/lib/custom-kernel/
 cp arch/x86/boot/bzImage $ROOTFS/usr/lib/custom-kernel/vmlinuz
+cp System.map $ROOTFS/usr/lib/custom-kernel/
 echo $KVER > $ROOTFS/usr/lib/custom-kernel/VERSION
 
 # target doesn't need the workaround, so now remove it
