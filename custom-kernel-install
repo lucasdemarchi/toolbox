@@ -37,6 +37,14 @@ case "$OPT_UNCOMPRESS" in
     \?) usage 2;;
 esac
 
+kernel_install=$(which kernel-install || true)
+if [ -z "$kernel_install" ]; then
+    installkernel=$(which installkernel || true)
+    if [ -z "$installkernel" ]; then
+	echo "Warning: neither kernel-install or installkernel available to install a kernel" >&2
+    fi
+fi
+
 if [ $# -gt 0 ]; then
     FILE=$1
     KVER=$(basename $FILE)
@@ -65,8 +73,10 @@ fi
 # remove previous modules
 rm -rf /usr/lib/modules/$KVER
 
-# remove previous kernel
-kernel-install remove $KVER
+if [ ! -z "$kernel_install" ]; then
+    # remove previous kernel
+    kernel-install remove $KVER
+fi
 
 # install kernel and modules on /usr/lib
 if [[ !  "$FILE" = "$SCRIPT" ]]; then
@@ -84,9 +94,10 @@ fi
 
 # copy kernel to boot partition, install bootloader entry and possibly
 # generate an initrd
-
-if [ ! -z "$(which kernel-install)" ]; then
-    kernel-install add $KVER /usr/lib/custom-kernel/vmlinuz
+if [ ! -z "$kernel_install" ]; then
+    $kernel_install add $KVER /usr/lib/custom-kernel/vmlinuz
+elif [ ! -z "$installkernel" ]; then
+    $installkernel $KVER /usr/lib/custom-kernel/{vmlinuz,System.map}
 else
     echo "Just going to install the kernel, bootloader config is on you"
     cp /usr/lib/custom-kernel/vmlinuz /boot/${2:-vmlinuz-test}
