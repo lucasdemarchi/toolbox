@@ -1,5 +1,6 @@
 #!/bin/bash
 
+ANSI_HIGHLIGHT_INFO_ON="\x1B[1;39m"
 ANSI_HIGHLIGHT_RED_ON="\x1B[1;31m"
 ANSI_HIGHLIGHT_OFF="\x1B[0m"
 
@@ -76,11 +77,15 @@ trap "report;" EXIT
 
 [ ! -z "$OPT_ENV" ] && . "$OPT_ENV"
 
-for i in $(git rev-list --reverse ${1}..HEAD)
+commits=($(git rev-list --reverse ${1}..HEAD))
+curr=1
+for i in ${commits[@]}
 do
     git checkout $i
+    echo -e "$ANSI_HIGHLIGHT_INFO_ON ‣ Testing $curr/${#commits[@]} $(git log --format=oneline --abbrev-commit  --no-decorate -1) $ANSI_HIGHLIGHT_OFF"
+    ((curr++))
     $OPT_CC || {
-        echo -e "$ANSI_HIGHLIGHT_RED_ON commit $i broke build $ANSI_HIGHLIGHT_OFF"
+        echo -e "${ANSI_HIGHLIGHT_RED_ON}commit $i broke build${ANSI_HIGHLIGHT_OFF}"
         build_bork="$build_bork $i"
         [ $OPT_EXIT_ON_FAIL -eq 1 ] && break
         continue
