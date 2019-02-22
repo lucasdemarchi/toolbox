@@ -1,0 +1,78 @@
+#!/bin/bash
+#
+# wrapper arround asciinema and asciinema-player
+#
+# This let you maintain a directory/repository with a bunch of *.cast files
+# and easily synchronize them somewhere to be served as static html
+#
+# cast-terminal build
+#   create a build/ directory containing the *.cast, *.html and resources
+#   out of the *.cast in the current directory
+
+set -e
+
+PLAYER_VERSION="v2.6.1"
+
+cmd_build() {
+    mkdir -p build/res
+    [ ! -f build/res/asciinema-player.css ] && \
+        curl -L https://github.com/asciinema/asciinema-player/releases/download/${PLAYER_VERSION}/asciinema-player.css > build/res/asciinema-player.css
+    [ ! -f build/res/asciinema-player.js ] && \
+        curl -L https://github.com/asciinema/asciinema-player/releases/download/${PLAYER_VERSION}/asciinema-player.js > build/res/asciinema-player.js
+
+    for f in *.cast; do
+        html=${f//.cast/.html}
+        cat - <<EOF > build/$html
+<html>
+<head>
+  <link rel="stylesheet" type="text/css" href="res/asciinema-player.css" />
+</head>
+<style>
+.links {
+    text-align: center;
+}
+</style>
+<body>
+  <script src="res/asciinema-player.js"></script>
+  <asciinema-player src="$f" speed="2" idle-time-limit="1"></asciinema-player>
+  <div class="links">Replay in your terminal with "asciinema play": <a href="$f">$f</a></div>
+</body>
+</html>
+EOF
+    done
+    cp *.cast build/
+}
+
+cmd_record() {
+    asciinema rec -i 2 "$1"
+}
+
+cmd_play() {
+    asciinema play -s 2 -i 1 "$1"
+}
+
+cmd_upload() {
+    cmd_build
+    rsync -avz --ignore-times build/ $1
+}
+
+cmd_help() {
+    echo "Available commands:"
+    declare -F | grep -o " cmd_[a-zA-Z_]*" | sed 's/^ cmd_/\t/;s/_/-/g'
+}
+
+if [ $# -lt 1 ]; then
+    cmd_help
+    exit 0
+fi
+
+cmd=cmd_${1//-/_}
+shift
+
+if [ -z "$cmd" ] || ! declare -f $cmd >/dev/null; then
+    echo "Unkonwn commands. Available commands:" > /dev/stderr
+    cmd_help > /dev/stderr
+    exit 1
+fi
+
+$cmd "$@"
