@@ -7,6 +7,7 @@ set -e
 
 disk=$1
 ROOT_PARTITION_X86_64="F68BCE3-E8CD-4DB1-96E7-FBCAF984B709"
+LINUX_PARTITION="0FC63DAF-8483-4772-8E79-3D69D8477DE4"
 
 # Make sure we print an error message, loud and clear
 trap '
@@ -23,11 +24,11 @@ trap 'exit 1;' SIGINT
 # using the free space and also allows us to put the alternate GPT table to
 # end of the device, where it belongs
 function recreate_partition_table() {
-    ptable=$(mktemp --tmpdir expand-root.XXXXXX)
+    ptable=$(mktemp --tmpdir expand-part.XXXXXX)
 
     # save current GPT description
     sfdisk --dump $disk | \
-        sed -e "/$ROOT_PARTITION_X86_64/s/[[:space:]]*size=[[:space:]]*[^,]*,//" \
+        sed -e "/$1/s/[[:space:]]*size=[[:space:]]*[^,]*,//" \
             -e "/^last-lba/d" > $ptable
 
     # Erase any partition table, including MBR that might contain old partitions
@@ -36,15 +37,28 @@ function recreate_partition_table() {
     # write back partition table
     sfdisk $disk < $ptable
 
+    cat $ptable
     rm -f $ptable
 }
 
-function expand_root() {
+function expand_last() {
     # now figure out what is the root parition and extend it
-    read part xxxxx <<<$(sfdisk --dump $disk | grep $ROOT_PARTITION_X86_64)
+    read part xxxxx <<<$(sfdisk --dump $disk | tail -n 1)
     e2fsck -f $part
     resize2fs $part
 }
 
-recreate_partition_table
-expand_root
+last_part_uuid=$(sfdisk --dump  ~/ubuntu-19.10.raw | tail -n 1 | sed 's/.*uuid=\([^ ,]*\).*/\1/')
+recreate_partition_table $last_part_uuid
+
+F=""
+if [ -f $disk ]; then
+	F=$disk
+	disk=$(losetup -f --show -P $F)
+fi
+
+expand_last $disk
+
+if [ -n "$F" ]; then
+	sudo losetup -d $disk
+fi
