@@ -6,8 +6,6 @@
 set -e
 
 disk=$1
-ROOT_PARTITION_X86_64="F68BCE3-E8CD-4DB1-96E7-FBCAF984B709"
-LINUX_PARTITION="0FC63DAF-8483-4772-8E79-3D69D8477DE4"
 
 # Make sure we print an error message, loud and clear
 trap '
