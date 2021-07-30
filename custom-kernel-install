@@ -13,26 +13,27 @@ Usage: $(basename $0) [OPTIONS]
 Unpack a kernel and install on this board board
 
 OPTIONS
-    -c [J|z]       pass flag to tar while unpacking
+    -c [J|z|zstd]       pass flag to tar while unpacking
 " 1>&$1;
     exit $(($1 - 1));
 }
 
-OPT_UNCOMPRESS=""
+OPT_COMPRESS="zstd"
 EXT=""
 args=0
 while getopts "ch" o; do
     case "${o}" in
-        c) OPT_UNCOMPRESS=${OPTARG}; args=$[$args + 2] ;;
+        c) OPT_COMPRESS=${OPTARG}; args=$[$args + 2] ;;
         h) usage 1;;
         \?) usage 2;;
     esac
 done
 shift $args
 
-case "$OPT_UNCOMPRESS" in
-    J) EXT="tar.xz";;
-    z) EXT="tar.gz";;
+case "$OPT_COMPRESS" in
+    J) EXT="tar.xz"; OPT_COMPRESS=-J;;
+    z) EXT="tar.gz"; OPT_COMPRESS=-z;;
+    zstd) EXT="tar.zstd"; OPT_COMPRESS=--zstd;;
     "") EXT=".tar";;
     \?) usage 2;;
 esac
@@ -45,17 +46,18 @@ if [ $# -gt 0 ]; then
     KVER=$(basename $FILE)
     KVER=${KVER/linux-}
     KVER=${KVER//${EXT}}
-    HAVE_MODULES=$(tar -t${OPT_UNCOMPRESS}f $FILE usr/lib/modules/$KVER | head -n 1)
+    HAVE_MODULES=$(tar -tf $FILE ${OPT_COMPRESS} usr/lib/modules/$KVER | head -n 1)
 else
     FILE=$SCRIPT
     KVER=$(basename $FILE)
     KVER=${KVER/linux-}
     KVER=${KVER//.sh}
+    KVER=${KVER//${EXT}}
 
     # check if we have embedded custom kernel
     if grep -e "^__CUSTOM_KERNEL_BELLOW__" ${SCRIPT}; then
 	HAVE_MODULES=$(sed -e '1,/^__CUSTOM_KERNEL_BELLOW__/d' ${SCRIPT} | \
-		tar -t${OPT_UNCOMPRESS} usr/lib/modules/$KVER | head -n 1)
+		tar -t ${OPT_COMPRESS} usr/lib/modules/$KVER | head -n 1)
     fi
 fi
 
@@ -75,10 +77,10 @@ fi
 
 # install kernel and modules on /usr/lib
 if [[ !  "$FILE" = "$SCRIPT" ]]; then
-    tar -C / -mx${OPT_UNCOMPRESS}f $FILE
+    tar -C / -mxf $FILE ${OPT_COMPRESS}
 else
     sed -e '1,/^__CUSTOM_KERNEL_BELLOW__/d' ${SCRIPT} | \
-            tar -C / -mx${OPT_UNCOMPRESS}
+            tar -C / -mx ${OPT_COMPRESS}
 fi
 
 # target didn't adhere to the /usr move
