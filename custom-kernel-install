@@ -33,7 +33,7 @@ shift $args
 case "$OPT_COMPRESS" in
     J) EXT="tar.xz"; OPT_COMPRESS=-J;;
     z) EXT="tar.gz"; OPT_COMPRESS=-z;;
-    zstd) EXT="tar.zstd"; OPT_COMPRESS=--zstd;;
+    zstd) EXT="tar.zstd"; OPT_COMPRESS="-I zstd";;
     "") EXT=".tar";;
     \?) usage 2;;
 esac
