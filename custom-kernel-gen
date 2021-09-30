@@ -82,13 +82,16 @@ rm $ROOTFS/lib
 
 if [ $OPT_AUTOEXTRACT -eq 1 ]; then
     s=${PWD}/linux-${KVER}${EXT}.sh
-    sed "s/^OPT_COMPRESS=.*/OPT_COMPRESS=$OPT_UNCOMPRESS/" $SCRIPT_DIR/custom-kernel-install > $s
-    echo -e "\nexit 0" >> $s
-    echo -e "\n__CUSTOM_KERNEL_BELLOW__" >> $s
-    ( cd $ROOTFS && tar -c ${OPT_COMPRESS} * >> $s )
-    chmod +x $s
+    sed "s/^OPT_COMPRESS=.*/OPT_COMPRESS=$OPT_UNCOMPRESS/" $SCRIPT_DIR/custom-kernel-install > "$s"
+    echo -e "\nexit 0" >> "$s"
+    echo -e "\n__CUSTOM_KERNEL_BELLOW__" >> "$s"
+    ( cd $ROOTFS && tar -c ${OPT_COMPRESS} * >> "$s" )
+    chmod +x "$s"
 else
     D=${PWD}
+    s=linux-${KVER}-config.xz
     ( cd $ROOTFS && tar -cf $D/linux-${KVER}${EXT} ${OPT_COMPRESS} * )
-    xz --stdout .config > linux-${KVER}-config.xz
+    xz --stdout .config > "$s"
 fi
+
+echo "Done: $s"
