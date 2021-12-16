@@ -2,7 +2,8 @@
 
 set -e
 
-display_controller_class="0300"
+vga="0300"
+display="0380"
 pci_vendor="8086"
 
 while read -r pci_slot class devid xxx; do
@@ -16,6 +17,6 @@ while read -r pci_slot class devid xxx; do
 			echo "ERROR: could not unbind driver" > /dev/stderr
 		fi
 	fi
-done <<<$(lspci -d ${pci_vendor}::${display_controller_class} -n)
+done <<<$(lspci -d ${pci_vendor}::${display} -n; lspci -d ${pci_vendor}::${vga} -n )
 
 modprobe -r i915
