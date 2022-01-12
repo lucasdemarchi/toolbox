@@ -20,6 +20,9 @@ BEGIN {
 }
 
 /menuentry '.*' .*{/ {
+	gsub(/^[\s\t]*/, "")
+	gsub(/[\s\t]*$/, "")
+
 	len = length($0)
 	if (len >= cols)
 		line = substr($0, 1, cols - 3) "..."
