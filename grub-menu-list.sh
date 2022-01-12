@@ -19,7 +19,7 @@ BEGIN {
 	count = 0
 }
 
-/menuentry/ && /class/ {
+/menuentry '.*' .*{/ {
 	len = length($0)
 	if (len >= cols)
 		line = substr($0, 1, cols - 3) "..."
