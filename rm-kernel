@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -eu
+
+DRY=
+
+rm_kernel() {
+	# safer than rm -r
+	$DRY find /boot -maxdepth 1 -name "*${1}*" -delete
+	$DRY find /boot -maxdepth 1 -xtype l -delete
+}
+
+rm_modules() {
+	$DRY rm -rf "/lib/modules/*${1}*"
+}
+
+for k in "$@"; do
+	k=${k//vmlinuz-}
+	rm_kernel "$k"
+	rm_modules "$k"
+done
+
+update-grub
