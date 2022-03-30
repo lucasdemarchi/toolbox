@@ -6,23 +6,23 @@
 # and easily synchronize them somewhere to be served as static html
 #
 # cast-terminal build
-#   create a build/ directory containing the *.cast, *.html and resources
-#   out of the *.cast in the current directory
+#   create a html and resources from *.cast in the current directory
 
 set -e
 
 PLAYER_VERSION="v2.6.1"
+DESTDIR=${DESTDIR:-.}
 
 cmd_build() {
-    mkdir -p build/res
-    [ ! -f build/res/asciinema-player.css ] && \
-        curl -L https://github.com/asciinema/asciinema-player/releases/download/${PLAYER_VERSION}/asciinema-player.css > build/res/asciinema-player.css
-    [ ! -f build/res/asciinema-player.js ] && \
-        curl -L https://github.com/asciinema/asciinema-player/releases/download/${PLAYER_VERSION}/asciinema-player.js > build/res/asciinema-player.js
+    mkdir -p ${DESTDIR}/res
+    [ ! -f ${DESTDIR}/res/asciinema-player.css ] && \
+        curl -L https://github.com/asciinema/asciinema-player/releases/download/${PLAYER_VERSION}/asciinema-player.css > ${DESTDIR}/res/asciinema-player.css
+    [ ! -f ${DESTDIR}/res/asciinema-player.js ] && \
+        curl -L https://github.com/asciinema/asciinema-player/releases/download/${PLAYER_VERSION}/asciinema-player.js > ${DESTDIR}/res/asciinema-player.js
 
     for f in *.cast; do
         html=${f//.cast/.html}
-        cat - <<EOF > build/$html
+        cat - <<EOF > ${DESTDIR}/$html
 <html>
 <head>
   <link rel="stylesheet" type="text/css" href="res/asciinema-player.css" />
@@ -40,7 +40,7 @@ cmd_build() {
 </html>
 EOF
     done
-    cp *.cast build/
+    [ $DESTDIR != "." ] && cp *.cast ${DESTDIR}/
 }
 
 cmd_record() {
@@ -53,7 +53,7 @@ cmd_play() {
 
 cmd_upload() {
     cmd_build
-    rsync -avz --ignore-times build/ $1
+    rsync -avz --ignore-times ${DESTDIR}/ $1
 }
 
 cmd_help() {
