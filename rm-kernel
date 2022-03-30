@@ -1,0 +1,17 @@
+#!/bin/bash
+
+rm_kernel() {
+	# safer than rm -r
+	find /boot -name "*${1}*" -delete
+	rm -f "/boot/*${1}*"
+}
+
+rm_modules() {
+	rm -rf "/lib/modules/*${1}*"
+}
+
+for k in "$@"; do
+	k=${k//vmlinuz-}
+	rm_kernel "$k"
+	rm_modules "$k"
+done
