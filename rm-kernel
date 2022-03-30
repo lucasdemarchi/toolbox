@@ -11,7 +11,7 @@ rm_kernel() {
 }
 
 rm_modules() {
-	$DRY rm -rf "/lib/modules/*${1}*"
+	$DRY find /lib/modules -maxdepth 1 -name "*${1}*" -exec rm -r {} \;
 }
 
 for k in "$@"; do
