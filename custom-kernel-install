@@ -55,7 +55,8 @@ else
     KVER=${KVER//${EXT}}
 
     # check if we have embedded custom kernel
-    if grep -e "^__CUSTOM_KERNEL_BELLOW__" ${SCRIPT}; then
+    if grep --quiet -e "^__CUSTOM_KERNEL_BELLOW__" ${SCRIPT}; then
+	echo "Found kernel $KVER embedded in script, extracting..." >&2
 	HAVE_MODULES=$(sed -e '1,/^__CUSTOM_KERNEL_BELLOW__/d' ${SCRIPT} | \
 		tar -t ${OPT_COMPRESS} usr/lib/modules/$KVER | head -n 1)
     fi
