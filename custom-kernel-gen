@@ -19,12 +19,15 @@ trap 'exit 1;' SIGINT
 
 usage() {
     echo "
-Usage: $(basename $0) [OPTIONS]
+Usage: $(basename $0) [OPTIONS] [dir]
 Pack a kernel to be installed in another board
 
 OPTIONS
     -x             generate auto-extract script
     -c [J|z|zstd]  pass flag to tar while packing
+
+ARGUMENTS
+    dir		   directory with the build. If not specified, CWD is used
 " 1>&$1;
     exit $(($1 - 1));
 }
@@ -34,18 +37,20 @@ SCRIPT_DIR=$(dirname $(realpath ${BASH_SOURCE[0]}))
 OPT_AUTOEXTRACT=0
 OPT_COMPRESS="zstd"
 EXT=""
-args=0
 while getopts "xc:h" o; do
     case "${o}" in
-        x) OPT_AUTOEXTRACT=1 ;;
-        c) OPT_COMPRESS=${OPTARG}; args=$[$args + 2] ;;
-        h) usage 1;;
-        \?) usage 2;;
+        x) OPT_AUTOEXTRACT=1; shift ;;
+        c) OPT_COMPRESS=${OPTARG}; shift 2 ;;
+        h) usage 1; shift ;;
+        \?) usage 2; shift ;;
     esac
 done
-shift $args
 
 OPT_UNCOMPRESS=$OPT_COMPRESS
+
+if [ $# -gt 0 ]; then
+	cd $1
+fi
 
 case "$OPT_COMPRESS" in
     J) EXT="tar.xz"; OPT_COMPRESS=-J;;
