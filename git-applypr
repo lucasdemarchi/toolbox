@@ -1,8 +1,7 @@
 #!/bin/bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-set -ex
-
+set -e
 
 OPT_REMOTE=
 OPT_LINK=
@@ -68,10 +67,11 @@ fi
 if [[ -n "$OPT_SIGN" ]]; then
 	trailers+=("$OPT_SIGN")
 fi	
-args=$(printf '"%s\" ' "${trailers[@]}")
+args=("${trailers[@]/#/--trailer \'}")
+args=("${args[@]/%/\'}")
 
 git fetchpr -r $OPT_REMOTE $pr
-git rebase -x "git amend-trailer $args" --onto HEAD HEAD FETCH_HEAD
+git rebase -x "git -c trailer.where=end -c trailer.if-exists=addIfDifferent commit --amend ${args[*]}" --onto HEAD HEAD FETCH_HEAD
 if [[ "$branch" != "HEAD" ]]; then
 	git checkout -B $branch HEAD
 fi
