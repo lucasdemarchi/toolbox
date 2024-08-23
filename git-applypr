@@ -6,6 +6,7 @@ set -e
 OPT_REMOTE=
 OPT_LINK=
 OPT_SIGN=
+OPT_EDIT=--no-edit
 
 usage() {
 	echo "
@@ -15,6 +16,7 @@ Fetch a pull-request from github
 OPTIONS
     -l          Add link to the PR in the commit message using applypr.link-base from config
     -s		Add Signed-off-by by the current user
+    -e		Edit commit message
     -r <remote> Use <remote>, otherwise uses fetchpr.remote from config
 " 1>&$1;
 	exit $(($1 - 1));
@@ -42,12 +44,17 @@ setup_remote() {
 	fi
 }
 
+setup_edit() {
+	OPT_EDIT=--edit
+}
+
 args=0
 while getopts "lsr:h" o; do
 	case "${o}" in
 		l) setup_link_base; args=$[$args + 1];;
 		s) setup_sign; args=$[$args + 1];;
 		r) setup_remote $OPTARG; args=$[$args + 2] ;;
+		e) setup_edit; args=$[$args + 1];;
 		h) usage 1;;
 		\?) usage 2;;
 	esac
@@ -71,7 +78,7 @@ args=("${trailers[@]/#/--trailer \'}")
 args=("${args[@]/%/\'}")
 
 git fetchpr -r $OPT_REMOTE $pr
-git rebase -x "git -c trailer.where=end -c trailer.if-exists=addIfDifferent commit --amend ${args[*]}" --onto HEAD HEAD FETCH_HEAD
+git rebase -x "git -c trailer.where=end -c trailer.if-exists=addIfDifferent commit --amend $OPT_EDIT ${args[*]}" --onto HEAD HEAD FETCH_HEAD
 if [[ "$branch" != "HEAD" ]]; then
 	git checkout -B $branch HEAD
 fi
