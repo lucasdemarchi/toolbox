@@ -1,0 +1,41 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+function unbind_devices {
+	d="$1"
+
+	while read -r sysdev; do
+		devid=$(cat "$sysdev/device")
+		bdf=$(basename "$sysdev")
+
+		echo -n "Unbinding $sysdev ($devid)... "
+		if [ ! -e "$sysdev/driver" ]; then
+			echo "(skip: not bound)"
+			continue
+		fi
+
+		echo -n auto > ${sysdev}/power/control
+		echo -n "$bdf" > $sysdev/driver/unbind
+		echo "ok"
+	done <<<$(find $d -type l -regextype egrep -regex '.*\/[0-f]{4}:[0-f]{2}:[0-f]{2}\.[0-f]$')
+}
+
+function unbind_modules {
+	modules="$1"
+
+	for m in $modules; do
+		for d in /sys/module/$m/drivers/*; do
+			unbind_devices "$d/"
+		done
+	done
+}
+
+if [ "${BASH_SOURCE[0]}" == "$0" ]; then
+	set -e
+	unbind_drivers "$1"
+
+	for d in $drivers; do
+		echo "Removing $d"
+		modprobe -r "$d"
+	done
+fi
