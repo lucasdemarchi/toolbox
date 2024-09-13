@@ -23,7 +23,7 @@ OPTIONS
 }
 
 setup_link_base() {
-	OPT_LINK=$(git config get  --default="" applypr.link-base)
+	OPT_LINK=$(git config --get --default="" applypr.link-base)
 	if [ -z "$OPT_LINK" ]; then
 		echo "Option -l requires applypr.link-base from config" >&2
 		usage 2
@@ -40,7 +40,7 @@ setup_remote() {
 	if [[ -n "$1" ]]; then
 		OPT_REMOTE=$1
 	else
-		OPT_REMOTE="$(git config get fetchpr.remote)"
+		OPT_REMOTE="$(git config --get fetchpr.remote)"
 	fi
 }
 
