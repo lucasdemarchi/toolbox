@@ -1,7 +1,7 @@
 #!/bin/bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-set -e
+set -euo pipefail
 
 OPT_REMOTE=
 OPT_LINK=
@@ -39,7 +39,7 @@ setup_sign() {
 }
 
 setup_remote() {
-	if [[ -n "$1" ]]; then
+	if [[ "${1+defined}" == defined ]]; then
 		OPT_REMOTE=$1
 	else
 		OPT_REMOTE="$(git config --get fetchpr.remote)"
