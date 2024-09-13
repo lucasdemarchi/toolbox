@@ -32,7 +32,7 @@ function unbind_modules {
 
 if [ "${BASH_SOURCE[0]}" == "$0" ]; then
 	set -e
-	unbind_drivers "$1"
+	unbind_modules "$@"
 
 	for d in $drivers; do
 		echo "Removing $d"
