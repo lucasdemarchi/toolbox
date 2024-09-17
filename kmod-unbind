@@ -5,6 +5,10 @@ function unbind_devices {
 	d="$1"
 
 	while read -r sysdev; do
+		lnk=$(readlink $sysdev)
+		if [[ "$lnk" != ../../../../devices/* ]]; then
+			continue
+		fi
 		devid=$(cat "$sysdev/device")
 		bdf=$(basename "$sysdev")
 
@@ -17,7 +21,7 @@ function unbind_devices {
 		echo -n auto > ${sysdev}/power/control
 		echo -n "$bdf" > $sysdev/driver/unbind
 		echo "ok"
-	done <<<$(find $d -type l -regextype egrep -regex '.*\/[0-f]{4}:[0-f]{2}:[0-f]{2}\.[0-f]$')
+	done <<<$(find $d -type l)
 }
 
 function unbind_modules {
