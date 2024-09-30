@@ -1,0 +1,298 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+set -euo pipefail
+
+SCRIPT_FILENAME=$(basename "${BASH_SOURCE[0]}")
+
+# may be executed remotely
+initrd() {
+	local k=$1
+
+	# shellcheck disable=SC1091
+	. /etc/os-release
+
+	if [[ "$ID_LIKE" == "arch" ]] || [[ "$ID" == "arch" ]]; then
+		mkinitcpio -k "/boot/vmlinuz-$k" -g "/boot/initramfs-$k.img"
+	elif [[ "$ID" == "ubuntu" ]]; then
+		update-initramfs -c -k "$k"
+	fi
+}
+
+# may be executed remotely
+bootloader() {
+	# shellcheck disable=SC1091
+	. /etc/os-release
+
+	update-grub
+}
+
+# may be executed remotely
+reboot() {
+	local should_reboot="$1" cmd
+
+	if [[ "$should_reboot" == "yes" ]]; then
+		command reboot
+	fi
+}
+
+# may be executed remotely
+sudo-function() {
+	(($#)) || { echo "Usage: sudo-function FUNC [ARGS...]" >&2; return 1; }
+	sudo bash -c "$(declare -f "$1");$(printf ' %q' "$@")"
+}
+
+usage() {
+	cat - <<-EOF
+	$SCRIPT_FILENAME - Deploy kernel builds
+	USAGE:
+	    $SCRIPT_FILENAME [OPTIONS]
+
+	Deploy Linux kernel build from the current directory to a local/remote system.
+	This command is expected to be used after building a kernel checkout and in the
+	directory where that build happened.
+
+	For remote deployment, both ssh and rsync are used - it's recommended to have
+	ssh key configured to avoid multiple authentication requests and the remote user
+	should be configured to be able to use sudo without password (TODO: remove this requirement)
+
+	OPTIONS:
+	    -h, --help			Show this help
+	    -i, --include[=] GLOB	Include only specific module glob
+	    -m, --module-only		Only deploy modules, skip kernel/bootloader changes
+	    -r, --remote-host[=] HOST	Host to be used for remote deploy via ssh/rsync
+	    -u, --remote-user[=] USER	User to be used for remote deploy via ssh/rsync [ default: $(whoami) ]
+	    -p, --remote-port[=] PORT	Port to be used for remote deploy via ssh/rsync [ default: 22 ]
+	    --remote-reboot		Reboot remote host after complete [ default: no ]
+	    --wait-remote-reboot	Like --remote-reboot (implied), but also wait it
+	                                come back [ default: no ]
+	    -t, --tmpdir[=] DIR		Directory to use for temporary installation
+
+	EXAMPLES:
+
+	Install on the same host:
+
+	    $ sudo $SCRIPT_FILENAME
+
+	Deploy kernel to a remote system:
+
+	    $ $SCRIPT_FILENAME -r 192.168.0.2
+
+	Deploy kernel to a VM running on this host with port 4022 forwarded and with a
+	different user name (requirement: remote user must have sudo power):
+
+	    $ $SCRIPT_FILENAME -p 4022 -r localhost -u test-user
+
+	Deploy only one module to a remote system:
+
+	    $ $SCRIPT_FILENAME -r remote-system -m -i 'xe.ko*'
+
+	Deploy 2 modules to a remote system:
+
+	    $ $SCRIPT_FILENAME -r remote-system -m -i 'xe.ko*' -i 'i915.ko*'
+EOF
+
+}
+
+argerr() {
+	echo "invalid argument: $*" >&2
+	echo >&2
+	usage | head -n1 >&2
+	exit 1
+}
+
+parse_arg_val() {
+	local -n ret=$1
+	shift
+	local key val n=0
+
+	if [[ "$1" =~ ^([^=]+)(=(.*)) ]]; then
+		key=${BASH_REMATCH[1]}
+		val=${BASH_REMATCH[3]}
+		n=0
+	else
+		if [[ $# -lt 2 ]]; then
+			argerr "Invalid option $1"
+		fi
+		key="$1"
+		val="$2"
+		n=1
+	fi
+
+	# shellcheck disable=SC2034
+	ret=("$n" "$key" "$val")
+}
+
+OPT_MODULE_INCLUDE=()
+OPT_MODULE_ONLY=no
+OPT_REMOTE_USER=$(whoami)
+OPT_REMOTE_PORT=22
+OPT_REMOTE_HOST=
+OPT_REMOTE_REBOOT=no
+OPT_WAIT_REMOTE_REBOOT=no
+OPT_TMPDIR=
+parse_args() {
+	local args
+
+	while [[ $# -gt 0 ]]; do
+		case  "$1" in
+		-h|--help)
+			usage
+			exit 0
+			;;
+		-i|--include|--include=*)
+			parse_arg_val args "$@"
+			shift "${args[0]}"
+			OPT_MODULE_INCLUDE+=("${args[2]}")
+			;;
+		-m|--module-only|--module-only=*)
+			parse_arg_val args "$@"
+			shift "${args[0]}"
+			OPT_MODULE_ONLY=yes
+			;;
+		-r|--remote-host|--remote-host=*)
+			parse_arg_val args "$@"
+			shift "${args[0]}"
+			OPT_REMOTE_HOST="${args[2]}"
+			;;
+		-u|--remote-user|--remote-user=*)
+			parse_arg_val args "$@"
+			shift "${args[0]}"
+			OPT_REMOTE_USER="${args[2]}"
+			;;
+		-p|--remote-port|--remote-port=*)
+			parse_arg_val args "$@"
+			shift "${args[0]}"
+			OPT_REMOTE_PORT="${args[2]}"
+			;;
+		-t|--tmpdir|--tmpdir=*)
+			parse_arg_val args "$@"
+			shift "${args[0]}"
+			OPT_TMPDIR="${args[2]}"
+			;;
+		--remote-reboot)
+			OPT_REMOTE_REBOOT="yes"
+			;;
+		--wait-remote-reboot)
+			OPT_REMOTE_REBOOT="yes"
+			OPT_WAIT_REMOTE_REBOOT="yes"
+			;;
+		*)
+			argerr "Unknown option $1"
+			;;
+		esac
+		shift
+	done
+
+	if [[ -z "$OPT_TMPDIR" ]]; then
+		OPT_TMPDIR=$(mktemp --tmpdir -d tmp.install-kernel.XXXX)
+		# shellcheck disable=SC2064
+		trap "rm -rf $OPT_TMPDIR" EXIT
+	fi
+}
+
+get_tmpdir() {
+	local tmpdir
+
+	echo "$tmpdir"
+}
+
+install_kernel() {
+	local krel="$1"
+
+	if [[ "$OPT_MODULE_ONLY" != "no" ]]; then
+		return
+	fi
+
+	mkdir -p "$OPT_TMPDIR/boot/"
+
+	# TODO: figure out arch
+	cp arch/x86/boot/bzImage "$OPT_TMPDIR/boot/vmlinuz-$krel"
+}
+
+install_modules() {
+	make "-j$(nproc)" INSTALL_MOD_PATH="$OPT_TMPDIR" modules_install
+}
+
+sync_to_dest() {
+	local sync_files=""
+
+	sync_files=
+	if [[ ${#OPT_MODULE_INCLUDE[@]} -gt 0 ]]; then
+		sync_files=$(printf -- "--include=%s " "${OPT_MODULE_INCLUDE[@]}")
+	fi
+
+	if [[ -n "$OPT_REMOTE_HOST" ]]; then
+		# shellcheck disable=SC2086
+		rsync -tcKrv \
+			-e "ssh -p $OPT_REMOTE_PORT" \
+			--rsync-path="sudo -u root rsync" \
+			$sync_files \
+			--progress "$OPT_TMPDIR/." "$OPT_REMOTE_USER@$OPT_REMOTE_HOST:/"
+	else
+		# shellcheck disable=SC2086
+		sudo rsync -tcKrv \
+			$sync_files \
+			--progress "$OPT_TMPDIR/." /
+	fi
+}
+
+post_kernel_install() {
+	local ret
+
+	if [[ "$OPT_MODULE_ONLY" != "no" ]]; then
+		return
+	fi
+
+	if [[ -n "$OPT_REMOTE_HOST" ]]; then
+		set +e
+		typeset -f initrd -f bootloader -f reboot -f sudo-function | \
+			ssh -p "$OPT_REMOTE_PORT" "$OPT_REMOTE_USER@$OPT_REMOTE_HOST" \
+			"$(cat); sudo-function initrd $krel && sudo-function bootloader && sudo-function reboot $OPT_REMOTE_REBOOT"
+		ret=$?
+		set -e
+
+		if [[ $ret != 0 ]] && [[ "$OPT_REMOTE_REBOOT" != "yes" ]]; then
+			exit $ret
+		fi
+	else
+		sudo-function initrd $krel && sudo-function bootloader
+	fi
+}
+
+wait_reboot() {
+	local retries=20 i
+
+	if [[ -z "$OPT_REMOTE_HOST" ]] || [[ "$OPT_WAIT_REMOTE_REBOOT" == "no" ]]; then
+		return
+	fi
+
+	for (( i=1; i <= $retries; i++ )); do
+		echo "Trying to re-connect [$i/$retries]"
+		if ssh -o BatchMode=yes \
+			-l "$OPT_REMOTE_USER" \
+			-p "$OPT_REMOTE_PORT" \
+			"$OPT_REMOTE_HOST" true; then
+			break
+		fi
+		sleep 3
+	done
+
+	if [[ $retries -eq 0 ]]; then
+		echo "Max timeout (60s) to reconnect reached" >&2
+		exit 1
+	fi
+}
+
+parse_args "$@"
+
+krel=$(make kernelrelease)
+
+install_kernel "$krel"
+install_modules
+
+sync_to_dest
+
+post_kernel_install "$krel"
+
+wait_reboot
