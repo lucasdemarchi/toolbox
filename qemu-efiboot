@@ -1,0 +1,150 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+set -euo pipefail
+
+SCRIPT_FILENAME=$(basename "${BASH_SOURCE[0]}")
+DISK=
+QEMU_EXTRA_ARGS=()
+
+usage() {
+	cat - <<-EOF
+	USAGE:
+	$SCRIPT_FILENAME [image] [options|qemu-options]
+
+	Wrapper with some default arguments to boot a raw/qcow2 image in efi
+
+	DISK must be the first non-positinal argument. The VARS file from edk2
+	will be copied to the same directory as the vm is located.
+	All options not specific to this wrapper are forwarded to qemu.
+
+	OPTIONS:
+	    -h, --help		Show this help
+
+	EXAMPLES:
+
+	Boot image:
+
+	    $ sudo $SCRIPT_FILENAME disk.qcow2
+
+	Create new image "layer" and boot:
+
+	    $ qemu-image create -f qcow2 -F qcow2 -b base.qcow2 dev.qcow2
+	    $ sudo $SCRIPT_FILENAME dev.qcow
+
+EOF
+}
+
+argerr() {
+	echo "invalid argument: $*" >&2
+	echo >&2
+	usage >&2
+	exit 1
+}
+
+err() {
+	echo "error: $*" >&2
+	exit 1
+}
+
+parse_args() {
+	DISK=$1
+	shift
+
+	while [[ $# -gt 0 ]]; do
+		case "$1" in
+		-h|--help)
+			usage
+			exit 0
+			;;
+		*)
+			QEMU_EXTRA_ARGS+=("$1")
+			;;
+		esac
+		shift
+	done
+
+	if [[ ! -e "$DISK" ]]; then
+		argerr "Missing image to boot - $DISK does not exist"
+	fi
+}
+
+parse_args "$@"
+
+# Inspect options to avoid setting incompatible default options.
+uses_daemonize=no
+uses_nic=no
+for option; do
+	if [[ "$option" == "-daemonize" ]]; then
+		uses_daemonize=yes
+	elif [[ "$option" == "-nic" ]]; then
+		uses_nic=yes
+	fi
+done
+
+#
+# Disk and format
+#
+if [[ "$DISK" == *.qcow2 ]]; then
+	image_format=qcow2
+else
+	image_format=raw
+fi
+
+qemu_args=(
+	"-machine" "accel=kvm"
+	"-smp" "2"
+	"-m" "2048"
+	"-drive" "if=virtio,id=hd,file=$DISK,format=$image_format"
+	"-object" "rng-random,filename=/dev/urandom,id=rng0"
+	"-device" "virtio-rng-pci,rng=rng0,id=rng-device0"
+)
+
+#
+# Network
+#
+if [[ "$uses_nic" != "yes" ]]; then
+	port_mapping=(
+		"4022" "22" # ssh
+	)
+	hostfwd=$(printf ",hostfwd=tcp::%s-:%s" "${port_mapping[@]}")
+	qemu_args+=("-nic" "user,model=virtio$hostfwd")
+fi
+
+# 
+# Firmware files
+# 
+ovmf_paths=(
+	"/usr/share/edk2/x64/OVMF_CODE.fd"
+	"/usr/share/edk2/x64/OVMF.fd"
+	"/usr/share/qemu/OVMF.fd"
+	"/dev/null"
+)
+
+for ovmf_code in "${ovmf_paths[@]}"; do
+	if [[ -f "$ovmf_code" ]]; then
+		break
+	fi
+done
+if [[ "$ovmf_code" == "/dev/null" ]]; then
+	err "No suitable OVMF firmware found."
+fi
+
+ovmf_vars="${ovmf_code/.fd}"
+ovmf_vars="${ovmf_vars/_CODE}"
+ovmf_vars="${ovmf_vars}_VARS.fd"
+local_ovmf_vars="$(dirname "$DISK")/$(basename "$ovmf_vars")"
+if [[ ! -e "$local_ovmf_vars" ]]; then
+	cp "$ovmf_vars" "$local_ovmf_vars"
+fi
+
+qemu_args+=(
+	"-drive" "if=pflash,format=raw,readonly=on,file=$ovmf_code"
+	"-drive" "if=pflash,format=raw,file=$local_ovmf_vars"
+)
+
+qemu_args+=("${QEMU_EXTRA_ARGS[@]}")
+
+echo Running qemu with:
+echo "    qemu-system-x86_64" "${qemu_args[@]}"
+exec qemu-system-x86_64 "${qemu_args[@]}"
