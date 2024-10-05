@@ -61,8 +61,8 @@ usage() {
 	    -i, --include[=] GLOB	Include only specific module glob
 	    -m, --module-only		Only deploy modules, skip kernel/bootloader changes
 	    -r, --remote-host[=] HOST	Host to be used for remote deploy via ssh/rsync
-	    -u, --remote-user[=] USER	User to be used for remote deploy via ssh/rsync [ default: $(whoami) ]
-	    -p, --remote-port[=] PORT	Port to be used for remote deploy via ssh/rsync [ default: 22 ]
+	    -u, --remote-user[=] USER	User to be used for remote deploy via ssh/rsync
+	    -p, --remote-port[=] PORT	Port to be used for remote deploy via ssh/rsync
 	    --remote-reboot		Reboot remote host after complete [ default: no ]
 	    --wait-remote-reboot	Like --remote-reboot (implied), but also wait it
 	                                come back [ default: no ]
@@ -125,12 +125,16 @@ parse_arg_val() {
 
 OPT_MODULE_INCLUDE=()
 OPT_MODULE_ONLY=no
-OPT_REMOTE_USER=$(whoami)
-OPT_REMOTE_PORT=22
+OPT_REMOTE_USER=
+OPT_REMOTE_PORT=
 OPT_REMOTE_HOST=
 OPT_REMOTE_REBOOT=no
 OPT_WAIT_REMOTE_REBOOT=no
 OPT_TMPDIR=
+
+SSH_REMOTE_ARGS=()
+RSYNC_REMOTE_ARGS=()
+
 parse_args() {
 	local args
 
@@ -187,6 +191,15 @@ parse_args() {
 		# shellcheck disable=SC2064
 		trap "rm -rf $OPT_TMPDIR" EXIT
 	fi
+
+	if [[ -n "$OPT_REMOTE_PORT" ]]; then
+		SSH_REMOTE_ARGS+=("-p" "$OPT_REMOTE_PORT")
+	fi
+
+	if [[ -n "$OPT_REMOTE_USER" ]]; then
+		SSH_REMOTE_ARGS+=("-l" "$OPT_REMOTE_USER")
+	fi
+
 }
 
 get_tmpdir() {
@@ -223,10 +236,10 @@ sync_to_dest() {
 	if [[ -n "$OPT_REMOTE_HOST" ]]; then
 		# shellcheck disable=SC2086
 		rsync -tcKrv \
-			-e "ssh -p $OPT_REMOTE_PORT" \
+			-e "ssh ${SSH_REMOTE_ARGS[*]}" \
 			--rsync-path="sudo -u root rsync" \
 			$sync_files \
-			--progress "$OPT_TMPDIR/." "$OPT_REMOTE_USER@$OPT_REMOTE_HOST:/"
+			--progress "$OPT_TMPDIR/." "$OPT_REMOTE_HOST:/"
 	else
 		# shellcheck disable=SC2086
 		sudo rsync -tcKrv \
@@ -245,7 +258,7 @@ post_kernel_install() {
 	if [[ -n "$OPT_REMOTE_HOST" ]]; then
 		set +e
 		typeset -f initrd -f bootloader -f reboot -f sudo-function | \
-			ssh -p "$OPT_REMOTE_PORT" "$OPT_REMOTE_USER@$OPT_REMOTE_HOST" \
+			ssh "${SSH_REMOTE_ARGS[@]}" "$OPT_REMOTE_HOST" \
 			"$(cat); sudo-function initrd $krel && sudo-function bootloader && sudo-function reboot $OPT_REMOTE_REBOOT"
 		ret=$?
 		set -e
@@ -268,8 +281,7 @@ wait_reboot() {
 	for (( i=1; i <= $retries; i++ )); do
 		echo "Trying to re-connect [$i/$retries]"
 		if ssh -o BatchMode=yes \
-			-l "$OPT_REMOTE_USER" \
-			-p "$OPT_REMOTE_PORT" \
+			"${SSH_REMOTE_ARGS[@]}"
 			"$OPT_REMOTE_HOST" true; then
 			break
 		fi
