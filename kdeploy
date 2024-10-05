@@ -186,6 +186,15 @@ parse_args() {
 		shift
 	done
 
+	if [[ -z "$OPT_REMOTE_HOST" ]]; then
+		if [[ -n "$OPT_REMOTE_USER" ]] ||
+			[[ -n "$OPT_REMOTE_PORT" ]] ||
+			[[ "$OPT_REMOTE_REBOOT" != no ]] ||
+			[[ "$OPT_WAIT_REMOTE_REBOOT" != no ]]; then
+			argerr "remote options require a remote specified with -r"
+		fi
+	fi
+
 	if [[ -z "$OPT_TMPDIR" ]]; then
 		OPT_TMPDIR=$(mktemp --tmpdir -d tmp.install-kernel.XXXX)
 		# shellcheck disable=SC2064
