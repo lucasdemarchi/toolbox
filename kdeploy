@@ -97,7 +97,7 @@ EOF
 argerr() {
 	echo "invalid argument: $*" >&2
 	echo >&2
-	usage | head -n1 >&2
+	usage >&2
 	exit 1
 }
 
