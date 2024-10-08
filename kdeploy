@@ -59,6 +59,7 @@ usage() {
 	OPTIONS:
 	    -h, --help			Show this help
 	    -i, --include[=] GLOB	Include only specific module glob
+	    -C DIR			Change to DIR before running
 	    -m, --module-only		Only deploy modules, skip kernel/bootloader changes
 	    -r, --remote-host[=] HOST	Host to be used for remote deploy via ssh/rsync
 	    -u, --remote-user[=] USER	User to be used for remote deploy via ssh/rsync
@@ -131,6 +132,7 @@ OPT_REMOTE_HOST=
 OPT_REMOTE_REBOOT=no
 OPT_WAIT_REMOTE_REBOOT=no
 OPT_TMPDIR=
+OPT_CHDIR=
 
 SSH_REMOTE_ARGS=()
 
@@ -142,6 +144,11 @@ parse_args() {
 		-h|--help)
 			usage
 			exit 0
+			;;
+		-C)
+			parse_arg_val args "$@"
+			shift "${args[0]}"
+			OPT_CHDIR="${args[2]}"
 			;;
 		-i|--include|--include=*)
 			parse_arg_val args "$@"
@@ -169,7 +176,7 @@ parse_args() {
 		-t|--tmpdir|--tmpdir=*)
 			parse_arg_val args "$@"
 			shift "${args[0]}"
-			OPT_TMPDIR="${args[2]}"
+			OPT_TMPDIR="$(realpath -m "${args[2]}")"
 			;;
 		--remote-reboot)
 			OPT_REMOTE_REBOOT="yes"
@@ -297,6 +304,10 @@ wait_reboot() {
 }
 
 parse_args "$@"
+
+if [[ -n "$OPT_CHDIR" ]]; then
+	cd "$OPT_CHDIR"
+fi
 
 krel=$(make kernelrelease)
 
