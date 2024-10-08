@@ -29,7 +29,7 @@ bootloader() {
 
 # may be executed remotely
 reboot() {
-	local should_reboot="$1" cmd
+	local should_reboot="$1"
 
 	if [[ "$should_reboot" == "yes" ]]; then
 		command reboot
@@ -133,7 +133,6 @@ OPT_WAIT_REMOTE_REBOOT=no
 OPT_TMPDIR=
 
 SSH_REMOTE_ARGS=()
-RSYNC_REMOTE_ARGS=()
 
 parse_args() {
 	local args
@@ -266,6 +265,7 @@ post_kernel_install() {
 
 	if [[ -n "$OPT_REMOTE_HOST" ]]; then
 		set +e
+		# shellcheck disable=SC2029
 		typeset -f initrd -f bootloader -f reboot -f sudo-function | \
 			ssh "${SSH_REMOTE_ARGS[@]}" "$OPT_REMOTE_HOST" \
 			"$(cat); sudo-function initrd $krel && sudo-function bootloader && sudo-function reboot $OPT_REMOTE_REBOOT"
@@ -276,7 +276,7 @@ post_kernel_install() {
 			exit $ret
 		fi
 	else
-		sudo-function initrd $krel && sudo-function bootloader
+		sudo-function initrd "$krel" && sudo-function bootloader
 	fi
 }
 
@@ -287,7 +287,7 @@ wait_reboot() {
 		return
 	fi
 
-	for (( i=1; i <= $retries; i++ )); do
+	for (( i=1; i <= retries; i++ )); do
 		echo "Trying to re-connect [$i/$retries]"
 		if ssh -o BatchMode=yes \
 			"${SSH_REMOTE_ARGS[@]}"
