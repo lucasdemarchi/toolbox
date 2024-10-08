@@ -207,13 +207,6 @@ parse_args() {
 	if [[ -n "$OPT_REMOTE_USER" ]]; then
 		SSH_REMOTE_ARGS+=("-l" "$OPT_REMOTE_USER")
 	fi
-
-}
-
-get_tmpdir() {
-	local tmpdir
-
-	echo "$tmpdir"
 }
 
 install_kernel() {
