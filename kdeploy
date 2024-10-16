@@ -138,6 +138,7 @@ OPT_TMPDIR=
 OPT_CHDIR=
 
 SSH_REMOTE_ARGS=()
+SYNC_FILES_ARGS=()
 
 parse_args() {
 	local args
@@ -217,6 +218,14 @@ parse_args() {
 	if [[ -n "$OPT_REMOTE_USER" ]]; then
 		SSH_REMOTE_ARGS+=("-l" "$OPT_REMOTE_USER")
 	fi
+
+	if [[ ${#OPT_MODULE_INCLUDE[@]} -gt 0 ]]; then
+		# include specific files given in the command line
+		readarray -t SYNC_FILES_ARGS< <(printf -- "--include=%s\n" "${OPT_MODULE_INCLUDE[@]}")
+		# recurse subdirs, but exclude anything not included above
+		SYNC_FILES_ARGS+=("--include=*/")
+		SYNC_FILES_ARGS+=("--exclude=*")
+	fi
 }
 
 install_kernel() {
@@ -237,24 +246,15 @@ install_modules() {
 }
 
 sync_to_dest() {
-	local sync_files=""
-
-	sync_files=
-	if [[ ${#OPT_MODULE_INCLUDE[@]} -gt 0 ]]; then
-		sync_files=$(printf -- "--include=%s " "${OPT_MODULE_INCLUDE[@]}")
-	fi
-
 	if [[ -n "$OPT_REMOTE_HOST" ]]; then
-		# shellcheck disable=SC2086
 		rsync -tcKrv \
 			-e "ssh ${SSH_REMOTE_ARGS[*]}" \
 			--rsync-path="sudo -u root rsync" \
-			$sync_files \
+			"${SYNC_FILES_ARGS[@]}" \
 			--progress "$OPT_TMPDIR/." "$OPT_REMOTE_HOST:/"
 	else
-		# shellcheck disable=SC2086
 		sudo rsync -tcKrv \
-			$sync_files \
+			"${SYNC_FILES_ARGS[@]}" \
 			--progress "$OPT_TMPDIR/." /
 	fi
 }
