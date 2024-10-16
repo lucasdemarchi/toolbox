@@ -9,7 +9,13 @@ set -euo pipefail
 
 
 initrd() {
+	local module_only=$1
+	shift
 	local k=$1
+
+	if [[ "$module_only" != "no" ]]; then
+		return
+	fi
 
 	# shellcheck disable=SC1091
 	. /etc/os-release
@@ -22,6 +28,12 @@ initrd() {
 }
 
 bootloader() {
+	local module_only=$1
+
+	if [[ "$module_only" != "no" ]]; then
+		return
+	fi
+
 	# shellcheck disable=SC1091
 	. /etc/os-release
 
@@ -262,16 +274,15 @@ sync_to_dest() {
 post_kernel_install() {
 	local ret
 
-	if [[ "$OPT_MODULE_ONLY" != "no" ]]; then
-		return
-	fi
-
 	if [[ -n "$OPT_REMOTE_HOST" ]]; then
 		set +e
 		# shellcheck disable=SC2029
 		typeset -f initrd -f bootloader -f reboot -f sudo-function | \
 			ssh "${SSH_REMOTE_ARGS[@]}" "$OPT_REMOTE_HOST" \
-			"$(cat); sudo-function initrd $krel && sudo-function bootloader && sudo-function reboot $OPT_REMOTE_REBOOT"
+			"$(cat); \
+			sudo-function initrd $OPT_MODULE_ONLY $krel && \
+			sudo-function bootloader $OPT_MODULE_ONLY && \
+			sudo-function reboot $OPT_REMOTE_REBOOT"
 		ret=$?
 		set -e
 
@@ -279,7 +290,7 @@ post_kernel_install() {
 			exit $ret
 		fi
 	else
-		sudo-function initrd "$krel" && sudo-function bootloader
+		sudo-function initrd "$OPT_MODULE_ONLY" "$krel" && sudo-function bootloader "$OPT_MODULE_ONLY"
 	fi
 }
 
