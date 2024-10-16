@@ -3,9 +3,11 @@
 
 set -euo pipefail
 
-SCRIPT_FILENAME=$(basename "${BASH_SOURCE[0]}")
+################################################################
+## Following functions must be self-contained since they may be
+## sent to a remote and executed there. Global params won't work
 
-# may be executed remotely
+
 initrd() {
 	local k=$1
 
@@ -19,7 +21,6 @@ initrd() {
 	fi
 }
 
-# may be executed remotely
 bootloader() {
 	# shellcheck disable=SC1091
 	. /etc/os-release
@@ -27,7 +28,6 @@ bootloader() {
 	update-grub
 }
 
-# may be executed remotely
 reboot() {
 	local should_reboot="$1"
 
@@ -36,11 +36,14 @@ reboot() {
 	fi
 }
 
-# may be executed remotely
 sudo-function() {
 	(($#)) || { echo "Usage: sudo-function FUNC [ARGS...]" >&2; return 1; }
 	sudo bash -c "$(declare -f "$1");$(printf ' %q' "$@")"
 }
+
+################################################################
+
+SCRIPT_FILENAME=$(basename "${BASH_SOURCE[0]}")
 
 usage() {
 	cat - <<-EOF
