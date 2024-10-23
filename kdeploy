@@ -7,6 +7,17 @@ set -euo pipefail
 ## Following functions must be self-contained since they may be
 ## sent to a remote and executed there. Global params won't work
 
+local_sync_to_dest() {
+	local tmpdir="$1"
+	shift
+	local sync_files_args=("$@")
+
+	if [[ -z "$tmpdir" ]]; then
+		return
+	fi
+
+	rsync -tcKrv "${sync_files_args[@]}" --progress "$tmpdir/." /
+}
 
 initrd() {
 	local module_only=$1
@@ -83,6 +94,15 @@ usage() {
 	    --wait-remote-reboot	Like --remote-reboot (implied), but also wait it
 	                                come back [ default: no ]
 	    -t, --tmpdir[=] DIR		Directory to use for temporary installation
+	    --remote-tmpdir[=] DIR	Set the remote directory to use as temporary location
+	                                for installation. An empty string disables it, with
+					the same behavior as --no-remote-tmpdir.
+					[ default: /tmp/kdeploy ]
+	    --no-remote-tmpdir		Disable use of tmpdir on the remote and it's the same
+					as passing --remote-tmpdir="". It requires remote
+	                                user to have sudo permission without password,
+	                                i.e. '<user> ALL=(ALL) NOPASSWD: ALL' to be configured
+	                                in sudoers.
 
 	EXAMPLES:
 
@@ -145,6 +165,7 @@ OPT_REMOTE_USER=
 OPT_REMOTE_PORT=
 OPT_REMOTE_HOST=
 OPT_REMOTE_REBOOT=no
+OPT_REMOTE_TMPDIR=/tmp/kdeploy
 OPT_WAIT_REMOTE_REBOOT=no
 OPT_TMPDIR=
 OPT_CHDIR=
@@ -188,6 +209,14 @@ parse_args() {
 			parse_arg_val args "$@"
 			shift "${args[0]}"
 			OPT_REMOTE_PORT="${args[2]}"
+			;;
+		--remote-tmpdir|--remote-tmpdir=*)
+			parse_arg_val args "$@"
+			shift "${args[0]}"
+			OPT_REMOTE_TMPDIR="${args[2]}"
+			;;
+		--no-remote-tmpdir)
+			OPT_REMOTE_TMPDIR=
 			;;
 		-t|--tmpdir|--tmpdir=*)
 			parse_arg_val args "$@"
@@ -258,16 +287,22 @@ install_modules() {
 }
 
 sync_to_dest() {
+	local rsync_path=() rtmp
+
 	if [[ -n "$OPT_REMOTE_HOST" ]]; then
+		if [[ -n "$OPT_REMOTE_TMPDIR" ]]; then
+			rtmp=$OPT_REMOTE_TMPDIR
+		else
+			rsync_path+=("--rsync-path=sudo -u root rsync")
+			rtmp="/"
+		fi
 		rsync -tcKrv \
 			-e "ssh ${SSH_REMOTE_ARGS[*]}" \
-			--rsync-path="sudo -u root rsync" \
+			"${rsync_path[@]}" \
 			"${SYNC_FILES_ARGS[@]}" \
-			--progress "$OPT_TMPDIR/." "$OPT_REMOTE_HOST:/"
+			--progress "$OPT_TMPDIR/." "$OPT_REMOTE_HOST:$rtmp"
 	else
-		sudo rsync -tcKrv \
-			"${SYNC_FILES_ARGS[@]}" \
-			--progress "$OPT_TMPDIR/." /
+		sudo-function local_sync_to_dest "$OPT_TMPDIR" "${SYNC_FILES_ARGS[@]}"
 	fi
 }
 
@@ -276,10 +311,12 @@ post_kernel_install() {
 
 	if [[ -n "$OPT_REMOTE_HOST" ]]; then
 		set +e
+		typeset -f initrd -f bootloader -f reboot -f local_sync_to_dest | \
+			ssh "${SSH_REMOTE_ARGS[@]}" "$OPT_REMOTE_HOST" -T "cat > /tmp/kdeploy-remote.sh"
 		# shellcheck disable=SC2029
-		typeset -f initrd -f bootloader -f reboot  | \
-			ssh "${SSH_REMOTE_ARGS[@]}" "$OPT_REMOTE_HOST" \
-			"sudo bash -c 'source /dev/stdin;	\
+		ssh -t "${SSH_REMOTE_ARGS[@]}" "$OPT_REMOTE_HOST" \
+			"sudo -s bash -c 'source /tmp/kdeploy-remote.sh; 		\
+			 local_sync_to_dest $OPT_REMOTE_TMPDIR ${SYNC_FILES_ARGS[*]} && \
 			 initrd $OPT_MODULE_ONLY $krel &&	\
 			 bootloader $OPT_MODULE_ONLY && 	\
 			 reboot $OPT_REMOTE_REBOOT'"
