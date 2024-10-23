@@ -277,12 +277,12 @@ post_kernel_install() {
 	if [[ -n "$OPT_REMOTE_HOST" ]]; then
 		set +e
 		# shellcheck disable=SC2029
-		typeset -f initrd -f bootloader -f reboot -f sudo-function | \
+		typeset -f initrd -f bootloader -f reboot  | \
 			ssh "${SSH_REMOTE_ARGS[@]}" "$OPT_REMOTE_HOST" \
-			"$(cat); \
-			sudo-function initrd $OPT_MODULE_ONLY $krel && \
-			sudo-function bootloader $OPT_MODULE_ONLY && \
-			sudo-function reboot $OPT_REMOTE_REBOOT"
+			"sudo bash -c 'source /dev/stdin;	\
+			 initrd $OPT_MODULE_ONLY $krel &&	\
+			 bootloader $OPT_MODULE_ONLY && 	\
+			 reboot $OPT_REMOTE_REBOOT'"
 		ret=$?
 		set -e
 
