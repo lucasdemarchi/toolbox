@@ -290,12 +290,18 @@ sync_to_dest() {
 	local rsync_path=() rtmp
 
 	if [[ -n "$OPT_REMOTE_HOST" ]]; then
+		# send functions to the remote that will finish the installation later
+		mkdir -p "$OPT_TMPDIR/tmp/"
+		typeset -f initrd bootloader reboot local_sync_to_dest \
+			> "$OPT_TMPDIR/tmp/kdeploy-remote.sh"
+
 		if [[ -n "$OPT_REMOTE_TMPDIR" ]]; then
 			rtmp=$OPT_REMOTE_TMPDIR
 		else
 			rsync_path+=("--rsync-path=sudo -u root rsync")
 			rtmp="/"
 		fi
+
 		rsync -tcKrv \
 			-e "ssh ${SSH_REMOTE_ARGS[*]}" \
 			"${rsync_path[@]}" \
@@ -307,15 +313,14 @@ sync_to_dest() {
 }
 
 post_kernel_install() {
-	local ret
+	local ret rtmp
 
 	if [[ -n "$OPT_REMOTE_HOST" ]]; then
+		rtmp=${OPT_REMOTE_TMPDIR:-}
 		set +e
-		typeset -f initrd -f bootloader -f reboot -f local_sync_to_dest | \
-			ssh "${SSH_REMOTE_ARGS[@]}" "$OPT_REMOTE_HOST" -T "cat > /tmp/kdeploy-remote.sh"
 		# shellcheck disable=SC2029
 		ssh -t "${SSH_REMOTE_ARGS[@]}" "$OPT_REMOTE_HOST" \
-			"sudo -s bash -c 'source /tmp/kdeploy-remote.sh; 		\
+			"sudo -s bash -c 'source $rtmp/tmp/kdeploy-remote.sh; 		\
 			 local_sync_to_dest $OPT_REMOTE_TMPDIR ${SYNC_FILES_ARGS[*]} && \
 			 initrd $OPT_MODULE_ONLY $krel &&	\
 			 bootloader $OPT_MODULE_ONLY && 	\
