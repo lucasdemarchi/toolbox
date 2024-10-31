@@ -18,7 +18,6 @@ function unbind_devices {
 			continue
 		fi
 
-		echo -n auto > ${sysdev}/power/control
 		echo -n "$bdf" > $sysdev/driver/unbind
 		echo "ok"
 	done <<<$(find $d -type l)
