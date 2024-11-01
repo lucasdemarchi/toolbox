@@ -1,40 +1,91 @@
 #!/bin/bash
-#
-# While in an interactive git-rebase, this allows to go back to a previous
-# commit without losing the changes already done so far.
-#
-# In other words, it allows the user to do "multiple passes" on the revision
-# range being updated in the same rebase section (i.e. no need to finish this
-# rebase and start a new one just because of a missed changed).
-#
-# This is achieved by hard-reseting to the commit passed as argument, and
-# prepending the range <commit>..HEAD to the git-rebase's todo file.
-set -ex
+set -e
 
-if [ $# -lt 1 ]; then
-    echo "missing commit to rebase onto" > /dev/stderr
-    exit 1
-fi
-commit=$1
+SCRIPT_FILENAME=$(basename "${BASH_SOURCE[0]}")
+ARG_COMMIT=
 
-git_dir=$(git rev-parse --git-dir)
-todo="$git_dir/rebase-merge/git-rebase-todo"
+usage() {
+    echo -n "\
+USAGE:
+    $SCRIPT_FILENAME [OPTIONS] <commit>
 
-if [ ! -f "$todo" ]; then
-    echo "Not in an interactive rebase?" > /dev/stderr
-    exit 1
-fi
+While in an interactive git-rebase, this allows to go back to a previous
+commit without losing the changes already done so far.
 
-new_todo=$(mktemp --tmpdir git-rewind-rebase.XXXXXXXXXX)
+In other words, it allows the user to do \"multiple passes\" on the
+revision range being updated in the same rebase section (i.e. no need to
+finish this rebase and start a new one just because of a missed
+changed).
 
-git log --reverse $commit..HEAD --format="pick %H %s" > "$new_todo"
+This is achieved by hard-reseting to the commit passed as argument, and
+prepending the range <commit>..HEAD to the git-rebase's todo file.
 
-# insert a break so we are back to the previously stopped place
-echo "x echo \"rewind-rebase previously stopped here\"" >> "$new_todo"
-echo "break" >> "$new_todo"
+OPTIONS:
+    -h
+        Show this help message.
+"
+}
 
-cat "$todo" >> "$new_todo"
+argerr() {
+	echo "invalid argument: $*" >&2
+	echo >&2
+	usage >&2
+	exit 1
+}
 
-# replace todo
-mv "$new_todo" "$todo"
-git reset --hard $commit
+parse_args() {
+    while (( $# > 0 )); do
+        case "$1" in
+        -h)
+            usage
+            exit 0
+            ;;
+        -*)
+            argerr "Unknown option $1."
+            ;;
+        *)
+            if [[ -n $ARG_COMMIT ]]; then
+                argerr "Commit specified more than once."
+            fi
+
+            ARG_COMMIT=$1
+            ;;
+        esac
+        shift
+    done
+
+    if [[ -z $ARG_COMMIT ]]; then
+        argerr "Missing commit to rebase onto."
+    fi
+}
+
+generate_new_todo() {
+    local git_dir
+    local todo
+    local new_todo
+
+    git_dir=$(git rev-parse --git-dir)
+    todo="$git_dir/rebase-merge/git-rebase-todo"
+
+    if [ ! -f "$todo" ]; then
+        echo "Not in an interactive rebase?" > /dev/stderr
+        exit 1
+    fi
+
+    new_todo=$(mktemp --tmpdir git-rewind-rebase.XXXXXXXXXX)
+
+    git log --reverse "$ARG_COMMIT..HEAD" --format="pick %H %s" > "$new_todo"
+
+    # insert a break so we are back to the previously stopped place
+    echo "x echo \"rewind-rebase previously stopped here\"" >> "$new_todo"
+    echo "break" >> "$new_todo"
+
+    cat "$todo" >> "$new_todo"
+
+    # replace todo
+    mv "$new_todo" "$todo"
+}
+
+parse_args "$@"
+generate_new_todo
+git reset --hard "$ARG_COMMIT"
