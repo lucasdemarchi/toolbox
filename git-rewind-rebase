@@ -26,18 +26,37 @@ OPTIONS:
 "
 }
 
+argerr() {
+	echo "invalid argument: $*" >&2
+	echo >&2
+	usage >&2
+	exit 1
+}
+
 parse_args() {
-    if [ $# -lt 1 ]; then
-        echo "missing commit to rebase onto" > /dev/stderr
-        exit 1
-    fi
+    while (( $# > 0 )); do
+        case "$1" in
+        -h)
+            usage
+            exit 0
+            ;;
+        -*)
+            argerr "Unknown option $1."
+            ;;
+        *)
+            if [[ -n $ARG_COMMIT ]]; then
+                argerr "Commit specified more than once."
+            fi
 
-    if [[ $1 == -h ]]; then
-        usage
-        exit 0
-    fi
+            ARG_COMMIT=$1
+            ;;
+        esac
+        shift
+    done
 
-    ARG_COMMIT=$1
+    if [[ -z $ARG_COMMIT ]]; then
+        argerr "Missing commit to rebase onto."
+    fi
 }
 
 generate_new_todo() {
