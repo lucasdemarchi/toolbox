@@ -9,7 +9,7 @@
 #
 # This is achieved by hard-reseting to the commit passed as argument, and
 # prepending the range <commit>..HEAD to the git-rebase's todo file.
-set -ex
+set -e
 
 ARG_COMMIT=
 
