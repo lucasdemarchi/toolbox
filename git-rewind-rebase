@@ -11,12 +11,14 @@
 # prepending the range <commit>..HEAD to the git-rebase's todo file.
 set -ex
 
+ARG_COMMIT=
+
 parse_args() {
     if [ $# -lt 1 ]; then
         echo "missing commit to rebase onto" > /dev/stderr
         exit 1
     fi
-    commit=$1
+    ARG_COMMIT=$1
 }
 
 generate_new_todo() {
@@ -34,7 +36,7 @@ generate_new_todo() {
 
     new_todo=$(mktemp --tmpdir git-rewind-rebase.XXXXXXXXXX)
 
-    git log --reverse $commit..HEAD --format="pick %H %s" > "$new_todo"
+    git log --reverse "$ARG_COMMIT..HEAD" --format="pick %H %s" > "$new_todo"
 
     # insert a break so we are back to the previously stopped place
     echo "x echo \"rewind-rebase previously stopped here\"" >> "$new_todo"
@@ -48,4 +50,4 @@ generate_new_todo() {
 
 parse_args "$@"
 generate_new_todo
-git reset --hard $commit
+git reset --hard "$ARG_COMMIT"
