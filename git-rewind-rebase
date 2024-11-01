@@ -11,30 +11,41 @@
 # prepending the range <commit>..HEAD to the git-rebase's todo file.
 set -ex
 
-if [ $# -lt 1 ]; then
-    echo "missing commit to rebase onto" > /dev/stderr
-    exit 1
-fi
-commit=$1
+parse_args() {
+    if [ $# -lt 1 ]; then
+        echo "missing commit to rebase onto" > /dev/stderr
+        exit 1
+    fi
+    commit=$1
+}
 
-git_dir=$(git rev-parse --git-dir)
-todo="$git_dir/rebase-merge/git-rebase-todo"
+generate_new_todo() {
+    local git_dir
+    local todo
+    local new_todo
 
-if [ ! -f "$todo" ]; then
-    echo "Not in an interactive rebase?" > /dev/stderr
-    exit 1
-fi
+    git_dir=$(git rev-parse --git-dir)
+    todo="$git_dir/rebase-merge/git-rebase-todo"
 
-new_todo=$(mktemp --tmpdir git-rewind-rebase.XXXXXXXXXX)
+    if [ ! -f "$todo" ]; then
+        echo "Not in an interactive rebase?" > /dev/stderr
+        exit 1
+    fi
 
-git log --reverse $commit..HEAD --format="pick %H %s" > "$new_todo"
+    new_todo=$(mktemp --tmpdir git-rewind-rebase.XXXXXXXXXX)
 
-# insert a break so we are back to the previously stopped place
-echo "x echo \"rewind-rebase previously stopped here\"" >> "$new_todo"
-echo "break" >> "$new_todo"
+    git log --reverse $commit..HEAD --format="pick %H %s" > "$new_todo"
 
-cat "$todo" >> "$new_todo"
+    # insert a break so we are back to the previously stopped place
+    echo "x echo \"rewind-rebase previously stopped here\"" >> "$new_todo"
+    echo "break" >> "$new_todo"
 
-# replace todo
-mv "$new_todo" "$todo"
+    cat "$todo" >> "$new_todo"
+
+    # replace todo
+    mv "$new_todo" "$todo"
+}
+
+parse_args "$@"
+generate_new_todo
 git reset --hard $commit
