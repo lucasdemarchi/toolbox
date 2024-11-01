@@ -1,23 +1,42 @@
 #!/bin/bash
-#
-# While in an interactive git-rebase, this allows to go back to a previous
-# commit without losing the changes already done so far.
-#
-# In other words, it allows the user to do "multiple passes" on the revision
-# range being updated in the same rebase section (i.e. no need to finish this
-# rebase and start a new one just because of a missed changed).
-#
-# This is achieved by hard-reseting to the commit passed as argument, and
-# prepending the range <commit>..HEAD to the git-rebase's todo file.
 set -e
 
+SCRIPT_FILENAME=$(basename "${BASH_SOURCE[0]}")
 ARG_COMMIT=
+
+usage() {
+    echo -n "\
+USAGE:
+    $SCRIPT_FILENAME [OPTIONS] <commit>
+
+While in an interactive git-rebase, this allows to go back to a previous
+commit without losing the changes already done so far.
+
+In other words, it allows the user to do \"multiple passes\" on the
+revision range being updated in the same rebase section (i.e. no need to
+finish this rebase and start a new one just because of a missed
+changed).
+
+This is achieved by hard-reseting to the commit passed as argument, and
+prepending the range <commit>..HEAD to the git-rebase's todo file.
+
+OPTIONS:
+    -h
+        Show this help message.
+"
+}
 
 parse_args() {
     if [ $# -lt 1 ]; then
         echo "missing commit to rebase onto" > /dev/stderr
         exit 1
     fi
+
+    if [[ $1 == -h ]]; then
+        usage
+        exit 0
+    fi
+
     ARG_COMMIT=$1
 }
 
