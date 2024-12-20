@@ -263,6 +263,10 @@ parse_args() {
 	if [[ ${#OPT_MODULE_INCLUDE[@]} -gt 0 ]]; then
 		# include specific files given in the command line
 		readarray -t SYNC_FILES_ARGS< <(printf -- "--include=%s\n" "${OPT_MODULE_INCLUDE[@]}")
+
+		# include our script to finalize installation
+		SYNC_FILES_ARGS+=("--include=kdeploy-remote.sh")
+
 		# recurse subdirs, but exclude anything not included above
 		SYNC_FILES_ARGS+=("--include=*/")
 		SYNC_FILES_ARGS+=("--exclude=*")
