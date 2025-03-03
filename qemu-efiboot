@@ -115,7 +115,7 @@ fi
 # Firmware files
 # 
 ovmf_paths=(
-	"/usr/share/edk2/x64/OVMF_CODE.fd"
+	"/usr/share/edk2/x64/OVMF_CODE.4m.fd"
 	"/usr/share/edk2/x64/OVMF.fd"
 	"/usr/share/qemu/OVMF.fd"
 	"/dev/null"
@@ -130,9 +130,9 @@ if [[ "$ovmf_code" == "/dev/null" ]]; then
 	err "No suitable OVMF firmware found."
 fi
 
-ovmf_vars="${ovmf_code/.fd}"
+ovmf_vars="${ovmf_code/.4m.fd}"
 ovmf_vars="${ovmf_vars/_CODE}"
-ovmf_vars="${ovmf_vars}_VARS.fd"
+ovmf_vars="${ovmf_vars}_VARS.4m.fd"
 local_ovmf_vars="$(dirname "$DISK")/$(basename "$ovmf_vars")"
 if [[ ! -e "$local_ovmf_vars" ]]; then
 	cp "$ovmf_vars" "$local_ovmf_vars"
