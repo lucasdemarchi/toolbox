@@ -29,8 +29,8 @@ usage() {
 
 	Create new image "layer" and boot:
 
-	    $ qemu-image create -f qcow2 -F qcow2 -b base.qcow2 dev.qcow2
-	    $ sudo $SCRIPT_FILENAME dev.qcow
+	    $ qemu-img create -f qcow2 -F qcow2 -b base.qcow2 dev.qcow2
+	    $ sudo $SCRIPT_FILENAME dev.qcow2
 
 EOF
 }
