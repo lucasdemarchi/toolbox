@@ -87,6 +87,8 @@ done
 #
 if [[ "$DISK" == *.qcow2 ]]; then
 	image_format=qcow2
+elif [[ "$(file $DISK)" = *QCOW* ]]; then
+	image_format=qcow2
 else
 	image_format=raw
 fi
