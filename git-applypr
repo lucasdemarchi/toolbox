@@ -38,14 +38,6 @@ setup_sign() {
 	OPT_SIGN="Signed-off-by: $(git config --get user.name) <$(git config --get user.email)>"
 }
 
-setup_remote() {
-	if [[ "${1+defined}" == defined ]]; then
-		OPT_REMOTE=$1
-	else
-		OPT_REMOTE="$(git config --get fetchpr.remote)"
-	fi
-}
-
 setup_edit() {
 	OPT_EDIT=--edit
 }
@@ -64,7 +56,6 @@ while getopts "lsr:eih" o; do
 done
 shift $args
 
-setup_remote
 branch=$(git rev-parse --abbrev-ref HEAD)
 pr=$1
 shift
@@ -80,7 +71,11 @@ fi
 args=("${trailers[@]/#/--trailer \'}")
 args=("${args[@]/%/\'}")
 
-git fetchpr -r $OPT_REMOTE $pr
+fetchpr_args=()
+if [[ -n "$OPT_REMOTE" ]]; then
+	fetchpr_args+=("-r" "$OPT_REMOTE")
+fi
+git fetchpr "${fetchpr_args[@]}" $pr
 git rebase $OPT_INTERACTIVE \
 	-x "git -c trailer.where=end -c trailer.if-exists=addIfDifferent commit --amend $OPT_EDIT ${args[*]}" \
 	--onto HEAD HEAD FETCH_HEAD
