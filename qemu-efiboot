@@ -117,13 +117,15 @@ fi
 # Firmware files
 # 
 ovmf_paths=(
-	"/usr/share/edk2/x64/OVMF_CODE.4m.fd"
+	"/usr/share/edk2/x64/OVMF_CODE.4m.fd	/usr/share/edk2/x64/OVMF_VARS.4m.fd"
+	"/usr/share/edk2/ovmf/OVMF_CODE.fd	/usr/share/edk2/ovmf/OVMF_VARS.fd" # Fedora 42
 	"/usr/share/edk2/x64/OVMF.fd"
 	"/usr/share/qemu/OVMF.fd"
 	"/dev/null"
 )
 
-for ovmf_code in "${ovmf_paths[@]}"; do
+for ovmf in "${ovmf_paths[@]}"; do
+	read -r ovmf_code ovmf_vars <<<"$ovmf"
 	if [[ -f "$ovmf_code" ]]; then
 		break
 	fi
@@ -132,19 +134,21 @@ if [[ "$ovmf_code" == "/dev/null" ]]; then
 	err "No suitable OVMF firmware found."
 fi
 
-ovmf_vars="${ovmf_code/.4m.fd}"
-ovmf_vars="${ovmf_vars/_CODE}"
-ovmf_vars="${ovmf_vars}_VARS.4m.fd"
+if [[ -e "$ovmf_vars" ]]; then
+	# _CODE is read-only. We will copy the _VARS locally and use that as
+	# read-write
+	qemu_args+=("-drive" "if=pflash,format=raw,readonly=on,file=$ovmf_code")
+else
+	# We are going to copy the _CODE locally and mount use it RW
+	ovmf_vars="$ovmf_code"
+fi
+
 local_ovmf_vars="$(dirname "$DISK")/$(basename "$ovmf_vars")"
 if [[ ! -e "$local_ovmf_vars" ]]; then
 	cp "$ovmf_vars" "$local_ovmf_vars"
 fi
 
-qemu_args+=(
-	"-drive" "if=pflash,format=raw,readonly=on,file=$ovmf_code"
-	"-drive" "if=pflash,format=raw,file=$local_ovmf_vars"
-)
-
+qemu_args+=("-drive" "if=pflash,format=raw,file=$local_ovmf_vars")
 qemu_args+=("${QEMU_EXTRA_ARGS[@]}")
 
 echo Running qemu with:
