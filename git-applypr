@@ -5,6 +5,7 @@ set -euo pipefail
 
 OPT_REMOTE=
 OPT_LINK=
+OPT_BRANCH=
 OPT_SIGN=
 OPT_EDIT=--no-edit
 OPT_INTERACTIVE=
@@ -17,6 +18,7 @@ Fetch a pull-request from github
 OPTIONS
     -l          Add link to the PR in the commit message using applypr.link-base from config
     -s		Add Signed-off-by by the current user
+    -b <branch>	Create a new branch, checkout and apply patches there.
     -r <remote> Use <remote>, otherwise uses fetchpr.remote from config
     -e		Edit commit message
     -i		Use --iterative for git-rebase when applying
@@ -46,11 +48,16 @@ setup_remote() {
 	OPT_REMOTE="$1"
 }
 
+setup_branch() {
+	OPT_BRANCH="$1"
+}
+
 args=0
-while getopts "lsr:eih" o; do
+while getopts "lsb:r:eih" o; do
 	case "${o}" in
 		l) setup_link_base; args=$[$args + 1];;
 		s) setup_sign; args=$[$args + 1];;
+		b) setup_branch $OPTARG; args=$[$args + 2];;
 		r) setup_remote $OPTARG; args=$[$args + 2];;
 		e) setup_edit; args=$[$args + 1];;
 		i) OPT_INTERACTIVE=--interactive; args=$[$args + 1];;
@@ -60,7 +67,12 @@ while getopts "lsr:eih" o; do
 done
 shift $args
 
-branch=$(git rev-parse --abbrev-ref HEAD)
+if [[ -n "$OPT_BRANCH" ]]; then
+	branch="$OPT_BRANCH"
+else
+	branch=$(git rev-parse --abbrev-ref HEAD)
+fi
+
 pr=$1
 shift
 
