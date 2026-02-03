@@ -86,6 +86,8 @@ usage() {
 	    -h, --help			Show this help
 	    -i, --include[=] GLOB	Include only specific module glob
 	    -C DIR			Change to DIR before running
+	    --arch[=] ARCH		Set arch to deploy - overrides ARCH from env and if
+					not set, native arch is used
 	    -m, --module-only		Only deploy modules, skip kernel/bootloader changes
 	    -r, --remote-host[=] HOST	Host to be used for remote deploy via ssh/rsync
 	    -u, --remote-user[=] USER	User to be used for remote deploy via ssh/rsync
@@ -187,6 +189,11 @@ parse_args() {
 			shift "${args[0]}"
 			OPT_CHDIR="${args[2]}"
 			;;
+		--arch)
+			parse_arg_val args "$@"
+			shift "${args[0]}"
+			ARCH="${args[2]}"
+			;;
 		-i|--include|--include=*)
 			parse_arg_val args "$@"
 			shift "${args[0]}"
@@ -273,8 +280,14 @@ parse_args() {
 	fi
 }
 
+set_arch() {
+	if [[ ! -v ARCH ]]; then
+		ARCH=$(arch)
+	fi
+}
+
 install_kernel() {
-	local krel="$1"
+	local krel="$1" image
 
 	if [[ "$OPT_MODULE_ONLY" != "no" ]]; then
 		return
@@ -282,12 +295,20 @@ install_kernel() {
 
 	mkdir -p "$OPT_TMPDIR/boot/"
 
-	# TODO: figure out arch
-	cp arch/x86/boot/bzImage "$OPT_TMPDIR/boot/vmlinuz-$krel"
+	case "$ARCH" in
+	x86_64)
+		image=arch/x86/boot/bzImage
+		;;
+	aarch64|arm64)
+		image=arch/arm64/boot/Image
+		;;
+	esac
+
+	cp "$image" "$OPT_TMPDIR/boot/vmlinuz-$krel"
 }
 
 install_modules() {
-	make "-j$(nproc)" INSTALL_MOD_PATH="$OPT_TMPDIR" modules_install
+	make "-j$(nproc)" ARCH="$ARCH" INSTALL_MOD_PATH="$OPT_TMPDIR" modules_install
 }
 
 sync_to_dest() {
@@ -371,6 +392,7 @@ fi
 
 krel=$(make kernelrelease)
 
+set_arch
 install_kernel "$krel"
 install_modules
 
