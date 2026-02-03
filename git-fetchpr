@@ -16,6 +16,18 @@ OPTIONS
     exit $(($1 - 1));
 }
 
+one_of() {
+	local v="$1"
+	shift
+	while (($#)); do
+		if [[ "$v" == "$1" ]]; then
+			return 0
+		fi
+		shift
+	done
+	return 1
+}
+
 OPT_BRANCH=
 OPT_REMOTE=
 OPT_REMOTE_TYPE=
@@ -42,7 +54,7 @@ find_remote() {
 		remotes=($(git remote))
 		if [[ ${#remotes[@]} -eq 1 ]]; then
 			OPT_REMOTE=${remotes[0]}
-		elif [[ "${remotes[*]}" == *"origin "* ]]; then
+		elif one_of "origin" "${remotes[@]}"; then
 			OPT_REMOTE=origin
 		fi
 
