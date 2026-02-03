@@ -42,12 +42,16 @@ setup_edit() {
 	OPT_EDIT=--edit
 }
 
+setup_remote() {
+	OPT_REMOTE="$1"
+}
+
 args=0
 while getopts "lsr:eih" o; do
 	case "${o}" in
 		l) setup_link_base; args=$[$args + 1];;
 		s) setup_sign; args=$[$args + 1];;
-		r) setup_remote $OPTARG; args=$[$args + 2] ;;
+		r) setup_remote $OPTARG; args=$[$args + 2];;
 		e) setup_edit; args=$[$args + 1];;
 		i) OPT_INTERACTIVE=--interactive; args=$[$args + 1];;
 		h) usage 1;;
