@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -euo pipefail
+
+op="$1"
+commit="$2"
+msg=$(git log --format=%B -1 "$commit" | \
+	git -c trailer.where=end \
+	interpret-trailers --trailer "$op: $(git config user.name) <$(git config user.email)>")
+
+exec git revise --no-index -m "$msg" "$commit"
