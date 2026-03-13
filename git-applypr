@@ -3,6 +3,7 @@
 
 set -euo pipefail
 
+SCRIPT_DIR=$(dirname $(realpath ${BASH_SOURCE[0]}))
 OPT_REMOTE=
 OPT_LINK=
 OPT_BRANCH=
@@ -91,7 +92,7 @@ fetchpr_args=()
 if [[ -n "$OPT_REMOTE" ]]; then
 	fetchpr_args+=("-r" "$OPT_REMOTE")
 fi
-git fetchpr "${fetchpr_args[@]}" $pr
+$SCRIPT_DIR/git-fetchpr "${fetchpr_args[@]}" $pr
 git rebase $OPT_INTERACTIVE \
 	-x "git -c trailer.where=end -c trailer.if-exists=addIfDifferent commit --amend $OPT_EDIT ${args[*]}" \
 	--onto HEAD HEAD FETCH_HEAD
