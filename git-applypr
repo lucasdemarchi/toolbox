@@ -92,10 +92,22 @@ fetchpr_args=()
 if [[ -n "$OPT_REMOTE" ]]; then
 	fetchpr_args+=("-r" "$OPT_REMOTE")
 fi
+
 $SCRIPT_DIR/git-fetchpr "${fetchpr_args[@]}" $pr
+
+if [[ "$branch" != "HEAD" ]]; then
+	export GIT_SEQUENCE_EDITOR="$SCRIPT_DIR/__toolbox_git_sequence_editor.sh"
+	export TOOLBOX_GIT_SEQUENCER_APPEND="x git checkout -B $branch HEAD"
+
+	if [[ -n "$OPT_INTERACTIVE" ]]; then
+		export TOOLBOX_GIT_SEQUENCER_INTERACTIVE=1
+	fi
+
+	# we always use interactive to make sure GIT_SEQUENCE_EDITOR is used, which
+	# will fire the editor if it was really supposed to be interactive
+	OPT_INTERACTIVE=--interactive
+fi
+
 git rebase $OPT_INTERACTIVE \
 	-x "git -c trailer.where=end -c trailer.if-exists=addIfDifferent commit --amend $OPT_EDIT ${args[*]}" \
 	--onto HEAD HEAD FETCH_HEAD
-if [[ "$branch" != "HEAD" ]]; then
-	git checkout -B $branch HEAD
-fi
