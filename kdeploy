@@ -85,6 +85,12 @@ usage() {
 	OPTIONS:
 	    -h, --help			Show this help
 	    -i, --include[=] GLOB	Include only specific module glob
+	    --extra-modules[=] PATH	Sync extra kernel modules from PATH (a file or
+					directory) into the kernel/ directory of the
+					module installation tree. Use the form
+					<src>:<dest> to place them at <dest> relative
+					to the kernel/ directory. May be specified
+					multiple times.
 	    -C DIR			Change to DIR before running
 	    --arch[=] ARCH		Set arch to deploy - overrides ARCH from env and if
 					not set, native arch is used
@@ -162,6 +168,7 @@ parse_arg_val() {
 }
 
 OPT_MODULE_INCLUDE=()
+OPT_EXTRA_MODULES=()
 OPT_MODULE_ONLY=no
 OPT_REMOTE_USER=
 OPT_REMOTE_PORT=
@@ -198,6 +205,11 @@ parse_args() {
 			parse_arg_val args "$@"
 			shift "${args[0]}"
 			OPT_MODULE_INCLUDE+=("${args[2]}")
+			;;
+		--extra-modules|--extra-modules=*)
+			parse_arg_val args "$@"
+			shift "${args[0]}"
+			OPT_EXTRA_MODULES+=("${args[2]}")
 			;;
 		-m|--module-only)
 			OPT_MODULE_ONLY=yes
@@ -318,6 +330,40 @@ install_modules() {
 	make "-j$(nproc)" ARCH="$ARCH" INSTALL_MOD_PATH="$OPT_TMPDIR" modules_install
 }
 
+install_extra_modules() {
+	local krel="$1" item src dest target
+	local kdir="$OPT_TMPDIR/lib/modules/$krel/kernel"
+
+	for item in "${OPT_EXTRA_MODULES[@]}"; do
+		if [[ "$item" == *:* ]]; then
+			src="${item%%:*}"
+			dest="${item#*:}"
+		else
+			src="$item"
+			dest=
+		fi
+
+		if [[ ! -e "$src" ]]; then
+			echo "extra-modules: '$src' not found" >&2
+			exit 1
+		fi
+
+		target="$kdir/$dest"
+		mkdir -p "$target"
+
+		if [[ -d "$src" ]]; then
+			rsync -a --prune-empty-dirs \
+				--include='*/' \
+				--include='*.ko' \
+				--include='*.ko.*' \
+				--exclude='*' \
+				"$src/" "$target/"
+		else
+			cp "$src" "$target/"
+		fi
+	done
+}
+
 sync_to_dest() {
 	local rsync_path=() rtmp
 
@@ -402,6 +448,7 @@ krel=$(make kernelrelease)
 set_arch
 install_kernel "$krel"
 install_modules
+install_extra_modules "$krel"
 
 sync_to_dest
 
