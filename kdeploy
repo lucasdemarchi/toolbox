@@ -284,6 +284,13 @@ set_arch() {
 	if [[ ! -v ARCH ]]; then
 		ARCH=$(arch)
 	fi
+	case "$ARCH" in
+	aarch64)
+		ARCH=arm64
+		;;
+	*)
+		;;
+	esac
 }
 
 install_kernel() {
