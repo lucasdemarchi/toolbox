@@ -49,9 +49,6 @@ err() {
 }
 
 parse_args() {
-	DISK=$1
-	shift
-
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
 		-h|--help)
@@ -60,13 +57,15 @@ parse_args() {
 			;;
 		--arch)
 			ARCH="$2"
-			shift
+			shift 2
 			;;
 		*)
-			QEMU_EXTRA_ARGS+=("$1")
+			DISK="$1"
+			shift
+			QEMU_EXTRA_ARGS+=("$@")
+			break
 			;;
 		esac
-		shift
 	done
 
 	if [[ ! -e "$DISK" ]]; then
@@ -79,7 +78,7 @@ parse_args "$@"
 # Inspect options to avoid setting incompatible default options.
 uses_daemonize=no
 uses_nic=no
-for option; do
+for option in "${QEMU_EXTRA_ARGS[@]}"; do
 	if [[ "$option" == "-daemonize" ]]; then
 		uses_daemonize=yes
 	elif [[ "$option" == "-nic" ]]; then
