@@ -5,6 +5,8 @@ set -euo pipefail
 
 SCRIPT_FILENAME=$(basename "${BASH_SOURCE[0]}")
 DISK=
+DRY_RUN_CMD=
+DRY_RUN=0
 ARCH=${ARCH:-$(arch)}
 QEMU_EXTRA_ARGS=()
 
@@ -58,6 +60,11 @@ parse_args() {
 		--arch)
 			ARCH="$2"
 			shift 2
+			;;
+		--dry|--dry-run)
+			DRY_RUN_CMD="echo"
+			DRY_RUN=1
+			shift
 			;;
 		*)
 			DISK="$1"
@@ -183,4 +190,6 @@ qemu_args+=("${QEMU_EXTRA_ARGS[@]}")
 
 echo Running qemu with:
 echo "    qemu-system-$ARCH" "${qemu_args[@]}"
-exec qemu-system-$ARCH "${qemu_args[@]}"
+if [[ $DRY_RUN -eq 0 ]]; then
+	exec qemu-system-$ARCH "${qemu_args[@]}"
+fi
