@@ -201,7 +201,7 @@ fi
 
 local_ovmf_vars="$(dirname "$DISK")/$(basename "$ovmf_vars")"
 if [[ ! -e "$local_ovmf_vars" ]]; then
-	cp "$ovmf_vars" "$local_ovmf_vars"
+	$DRY_RUN_CMD cp "$ovmf_vars" "$local_ovmf_vars"
 fi
 
 qemu_args+=("-drive" "if=pflash,format=raw,file=$local_ovmf_vars")
