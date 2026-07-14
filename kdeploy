@@ -334,6 +334,10 @@ install_extra_modules() {
 	local krel="$1" item src dest target
 	local kdir="$OPT_TMPDIR/lib/modules/$krel/kernel"
 
+	if [[ ${#OPT_EXTRA_MODULES[@]} -eq 0 ]]; then
+		return
+	fi
+
 	for item in "${OPT_EXTRA_MODULES[@]}"; do
 		if [[ "$item" == *:* ]]; then
 			src="${item%%:*}"
@@ -362,6 +366,10 @@ install_extra_modules() {
 			cp "$src" "$target/"
 		fi
 	done
+
+	# modules_install already generated modules.dep and friends; regenerate
+	# them so the freshly copied extra modules are usable through modprobe.
+	depmod -b "$OPT_TMPDIR" "$krel"
 }
 
 sync_to_dest() {
