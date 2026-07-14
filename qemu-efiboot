@@ -131,6 +131,15 @@ aarch64|arm64)
 	;;
 esac
 
+HOST_ARCH=$(arch)
+case "$HOST_ARCH" in
+aarch64|arm64)
+	HOST_ARCH=aarch64
+	;;
+*)
+	;;
+esac
+
 # 
 # Firmware files
 ovmf_path=()
@@ -144,18 +153,28 @@ case "$ARCH" in
 		"/usr/share/qemu/OVMF.fd"
 		"/dev/null"
 	)
-	qemu_args+=("-machine" "accel=kvm")
+	if [[ "$HOST_ARCH" == "$ARCH" ]]; then
+		qemu_args+=("-machine" "q35,accel=kvm" "-cpu" "host")
+	else
+		qemu_args+=("-machine" "q35,accel=tcg" "-cpu" "max")
+	fi
 	;;
 "aarch64")
 	ovmf_paths+=(
 		"/usr/share/AAVMF/AAVMF_CODE.fd		/usr/share/AAVMF/AAVMF_VARS.fd"
 		"/dev/null"
 	)
-	qemu_args+=(
-		"-machine" "virt,gic-version=host"
-		"-cpu" "host"
-		"-accel" "kvm"
-	)
+	if [[ "$HOST_ARCH" == "$ARCH" ]]; then
+		qemu_args+=(
+			"-machine" "virt,gic-version=host,accel=kvm"
+			"-cpu" "host"
+		)
+	else
+		qemu_args+=(
+			"-machine" "virt,accel=tcg"
+			"-cpu" "max"
+		)
+	fi
 	;;
 *)
 	exit 1
