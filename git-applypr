@@ -77,22 +77,18 @@ fi
 pr=$1
 shift
 
-trailers=()
-trailers+=("$@")
+trailers=("$@")
 if [[ -n "$OPT_LINK" ]]; then
 	trailers+=("Link: $OPT_LINK/pull/$pr")
 fi
-if [[ -n "$OPT_SIGN" ]]; then
-	trailers+=("$OPT_SIGN")
-fi	
-args=("${trailers[@]/#/--trailer \'}")
-args=("${args[@]/%/\'}")
+# now wrap each trailer with "--trailer '$t'"
+trailers=("${trailers[@]/#/--trailer \'}")
+trailers=("${trailers[@]/%/\'}")
 
 fetchpr_args=()
 if [[ -n "$OPT_REMOTE" ]]; then
 	fetchpr_args+=("-r" "$OPT_REMOTE")
 fi
-
 $SCRIPT_DIR/git-fetchpr "${fetchpr_args[@]}" $pr
 
 if [[ "$branch" != "HEAD" ]]; then
@@ -108,6 +104,18 @@ if [[ "$branch" != "HEAD" ]]; then
 	OPT_INTERACTIVE=--interactive
 fi
 
+# `git -c trailer.* .. commit --amend` doesn't work consistently and doesn't allow to
+# give different placements for the trailers. So prefer the alternative as:
+# git log --format=%B -1 | git interpret-trailers ... | git commit --amend -F-
+trailers_str="git log --format=%B -1 "
+trailers_str+="| git interpret-trailers --no-divider --where=end --if-exists=addIfDifferent ${trailers[*]} "
+if [[ -n "$OPT_SIGN" ]]; then
+	trailers_str+="--if-exists=replace --trailer '$OPT_SIGN' "
+fi
+trailers_str+="| git commit --amend -F-"
+
+exec_args=(-x "$trailers_str")
+
 git rebase $OPT_INTERACTIVE \
-	-x "git -c trailer.where=end -c trailer.if-exists=addIfDifferent commit --amend $OPT_EDIT ${args[*]}" \
+	"${exec_args[@]}" \
 	--onto HEAD HEAD FETCH_HEAD
